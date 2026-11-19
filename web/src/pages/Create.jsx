@@ -306,6 +306,7 @@ export default function Create({ step, setStep }) {
           language={language} changeLanguage={changeLanguage}
           device={device} setDevice={setDevice} devices={devices}
           numClips={numClips} setNumClips={setNumClips} clipLen={clipLen} setClipLen={setClipLen}
+          duration={vidDuration || transcript.duration || (prepView && prepView.duration)}
           studio={studio} fonts={fonts} aspect={aspect} fit={fit} signature={signature} setSig={setSig} videoRef={videoRef}
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}

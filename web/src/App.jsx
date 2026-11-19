@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { Icons } from "./components/Icons.jsx";
+import ModelOnboarding from "./components/ModelOnboarding.jsx";
 import Create from "./pages/Create.jsx";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
@@ -26,7 +27,7 @@ const THEMES = [
 // loads. On a fresh install this can take a few minutes to download — this
 // screen is the fix for that looking "stuck": real progress instead of a
 // refused connection or a blank tab.
-function ModelSplash({ status }) {
+function ModelSplash({ status, onSwitchModel }) {
   const pct = status.progress != null ? Math.round(status.progress * 100) : null;
   const failed = status.status === "error";
   return (
@@ -37,7 +38,12 @@ function ModelSplash({ status }) {
         <>
           <div className="model-splash-msg" style={{ color: "var(--danger)" }}>Could not start the AI engine.</div>
           <div className="model-splash-detail">{status.message}</div>
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => window.location.reload()}>Retry</button>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <button className="btn btn-primary" onClick={() => window.location.reload()}>Retry</button>
+            {onSwitchModel && (
+              <button className="btn" onClick={onSwitchModel}>Switch Model</button>
+            )}
+          </div>
         </>
       ) : (
         <>
@@ -47,6 +53,21 @@ function ModelSplash({ status }) {
           </div>
           {status.status === "downloading" && (
             <div className="model-splash-detail">One-time download — this machine won't need it again.</div>
+          )}
+          {onSwitchModel && (
+            <button
+              className="btn btn-sm"
+              style={{
+                marginTop: 20,
+                background: "transparent",
+                border: "1px solid var(--line-2)",
+                color: "var(--muted)",
+                fontSize: 12,
+              }}
+              onClick={onSwitchModel}
+            >
+              Choose a different model
+            </button>
           )}
         </>
       )}
@@ -122,11 +143,31 @@ export default function App() {
 
   const go = (id) => { setPage(id); if (id === "create") setStep(1); setNavOpen(false); };
 
+  if (modelStatus.status === "needs_onboarding") {
+    return (
+      <div className={"shell is-landing" + (navOpen ? " nav-open" : "")}>
+        <ThemeSwitch theme={theme} setTheme={setTheme} fixed />
+        <div className="content">
+          <ModelOnboarding
+            onSelect={(id) => {
+              setModelStatus({ status: "downloading", message: `Preparing '${id}' model…`, progress: 0.0, model_size: id });
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (modelStatus.status !== "ready") {
     return (
       <div className={"shell is-landing" + (navOpen ? " nav-open" : "")}>
         <ThemeSwitch theme={theme} setTheme={setTheme} fixed />
-        <div className="content"><ModelSplash status={modelStatus} /></div>
+        <div className="content">
+          <ModelSplash
+            status={modelStatus}
+            onSwitchModel={() => setModelStatus({ status: "needs_onboarding", message: "", progress: null })}
+          />
+        </div>
       </div>
     );
   }

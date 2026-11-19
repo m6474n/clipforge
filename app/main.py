@@ -40,6 +40,19 @@ logger = logging.getLogger("ai_video_clipper")
 
 def _load_model_background() -> None:
     """Load whisper off the startup path (see lifespan() for why)."""
+    if not transcriber.is_configured():
+        specs = transcriber.get_system_specs()
+        suggested = specs.get("suggested_model", "large-v3-turbo")
+        transcriber._set_status(
+            status="needs_onboarding",
+            message=f"System check complete: {specs.get('cpu')} ({specs.get('ram_gb')} GB RAM).",
+            progress=None,
+            model_size=suggested,
+            device=None,
+        )
+        logger.info("Startup: Awaiting model onboarding selection.")
+        return
+
     try:
         transcriber.load_model()
         logger.info(
@@ -107,6 +120,30 @@ def model_status() -> dict:
 def caption_styles() -> list[dict]:
     """Return the caption style presets for the UI (chips + live preview)."""
     return captions.get_presets_for_api()
+
+
+class SelectModelRequest(BaseModel):
+    model_id: str
+    device: str = "auto"
+
+
+@app.get("/api/system-and-models")
+def system_and_models() -> dict:
+    """System hardware detection, available Whisper models with metadata, and current selection."""
+    return {
+        "system": transcriber.get_system_specs(),
+        "models": transcriber.AVAILABLE_MODELS,
+        "selected_model": transcriber.get_saved_model(),
+        "is_configured": transcriber.is_configured(),
+        "active_model": transcriber.get_model_size(),
+        "status": transcriber.model_status(),
+    }
+
+
+@app.post("/api/model/select")
+def select_model(req: SelectModelRequest) -> dict:
+    """Set the user's chosen Whisper model and initialize download/loading in background."""
+    return transcriber.switch_model(req.model_id, req.device)
 
 
 @app.get("/api/devices")

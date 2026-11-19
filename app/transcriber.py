@@ -68,7 +68,7 @@ except Exception as _exc:
 from faster_whisper import WhisperModel  # noqa: E402
 
 from .models import TranscriptionError  # noqa: E402
-from .paths import TRANSCRIPTS_DIR  # noqa: E402
+from .paths import CONFIG_FILE, TRANSCRIPTS_DIR  # noqa: E402
 
 # Fallback when hardware can't be probed at all. Per-device auto-selection
 # (see _pick_model_size) normally overrides this — kept only as a last resort.
@@ -211,38 +211,162 @@ def _system_ram_gb() -> Optional[float]:
         return None
 
 
-# (min GB, model size) tiers, checked best-first. A modest GPU/CPU shouldn't
-# get stuck trying to load 'medium' (slow, or may not fit in VRAM) — and CPU
-# never defaults to 'medium' at all (impractically slow) unless told to.
-_GPU_TIERS: list[tuple[float, str]] = [(10.0, "large-v3"), (6.0, "medium"), (3.0, "small"), (0.0, "base")]
-_CPU_TIERS: list[tuple[float, str]] = [(16.0, "small"), (0.0, "base")]
+# Models available for selection in the onboarding & settings UI
+AVAILABLE_MODELS: list[dict] = [
+    {
+        "id": "large-v3-turbo",
+        "name": "Large-v3-Turbo",
+        "tagline": "Best Accuracy & Speed",
+        "badge": "Recommended",
+        "size_mb": 1600,
+        "size_label": "~1.6 GB",
+        "accuracy": "Best (99% of Large-v3)",
+        "speed": "Fast on CPU & GPU",
+        "description": "State-of-the-art speech recognition with 4 decoder layers. Delivers the near-identical accuracy of Large-v3 at ~6x speed on CPU. Highly recommended for accurate sentence boundaries and punchy word timestamps.",
+    },
+    {
+        "id": "large-v3",
+        "name": "Large-v3",
+        "tagline": "Maximum Precision",
+        "badge": "Highest Accuracy",
+        "size_mb": 3100,
+        "size_label": "~3.1 GB",
+        "accuracy": "Maximum (100%)",
+        "speed": "Slow on CPU",
+        "description": "OpenAI's flagship 32-layer Whisper model. Unmatched accuracy for thick accents, background chatter, and multi-language technical terms. Note: Processing long videos on CPU takes substantial time.",
+    },
+    {
+        "id": "medium",
+        "name": "Medium",
+        "tagline": "High Quality",
+        "badge": "Standard",
+        "size_mb": 1500,
+        "size_label": "~1.5 GB",
+        "accuracy": "High (92%)",
+        "speed": "Moderate",
+        "description": "Standard 12-layer model. High-accuracy transcription, though Large-v3-Turbo is generally faster with slightly better recognition quality.",
+    },
+    {
+        "id": "small",
+        "name": "Small",
+        "tagline": "Lightweight & Fast",
+        "badge": "Lightweight",
+        "size_mb": 484,
+        "size_label": "~484 MB",
+        "accuracy": "Good (82%)",
+        "speed": "Very Fast",
+        "description": "Compact footprint with fast transcription on CPU. Ideal for clear dialogue, podcasts, or lower memory systems, but may miss rapid speech or subtle background words.",
+    },
+    {
+        "id": "base",
+        "name": "Base",
+        "tagline": "Minimal Resource",
+        "badge": "Fastest",
+        "size_mb": 145,
+        "size_label": "~145 MB",
+        "accuracy": "Basic (70%)",
+        "speed": "Ultra Fast",
+        "description": "Ultra-lightweight with rapid downloads and lowest CPU usage. Best for testing and low-power hardware, with basic accuracy.",
+    },
+]
+
+
+def get_saved_model() -> Optional[str]:
+    """Return the model size configured by the user, if any."""
+    if env_model := os.environ.get("WHISPER_MODEL"):
+        return env_model.strip()
+    if CONFIG_FILE.is_file():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("model_size")
+        except Exception as exc:
+            logger.debug("Could not read config file: %s", exc)
+    return None
+
+
+def save_selected_model(model_name: str) -> None:
+    """Save the chosen model to the local config file."""
+    data = {}
+    if CONFIG_FILE.is_file():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+    data["model_size"] = model_name
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as exc:
+        logger.warning("Could not save model to %s: %s", CONFIG_FILE, exc)
+
+
+def is_configured() -> bool:
+    """True if user has chosen/confirmed a model."""
+    return get_saved_model() is not None
+
+
+def get_system_specs() -> dict:
+    """Detect local CPU, RAM, and GPU to provide smart model recommendation."""
+    ram_gb = _system_ram_gb()
+    cuda = cuda_available()
+    gpu = gpu_name()
+
+    cpu_name = "CPU"
+    try:
+        import platform, subprocess
+        if platform.system() == "Darwin":
+            res = subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"], text=True).strip()
+            if res:
+                cpu_name = res
+        elif platform.system() == "Linux":
+            with open("/proc/cpuinfo") as f:
+                for line in f:
+                    if "model name" in line:
+                        cpu_name = line.split(":", 1)[1].strip()
+                        break
+        elif platform.system() == "Windows":
+            cpu_name = platform.processor() or "CPU"
+    except Exception:
+        cpu_name = "CPU"
+
+    # Suggestion rule based on hardware capabilities
+    if cuda and _gpu_vram_gb() and _gpu_vram_gb() >= 10.0:
+        suggested = "large-v3-turbo"
+        reason = f"Detected NVIDIA GPU ({gpu or 'CUDA'}) with ample VRAM. Large-v3-Turbo provides top-tier clipping accuracy with blistering speed."
+    elif ram_gb and ram_gb >= 12.0:
+        suggested = "large-v3-turbo"
+        reason = f"Detected {ram_gb:.1f} GB RAM on {cpu_name}. Large-v3-Turbo is recommended for maximum clipping accuracy and runs ~6x faster than Large-v3 on CPU."
+    elif ram_gb and ram_gb >= 8.0:
+        suggested = "small"
+        reason = f"Detected {ram_gb:.1f} GB RAM. Small is recommended for a balanced CPU speed and memory usage."
+    else:
+        suggested = "base"
+        reason = "Detected compact RAM footprint. Base is recommended to avoid out-of-memory issues."
+
+    return {
+        "os": sys.platform,
+        "cpu": cpu_name,
+        "ram_gb": round(ram_gb, 1) if ram_gb else None,
+        "cuda_available": cuda,
+        "gpu_name": gpu,
+        "suggested_model": suggested,
+        "reason": reason,
+    }
 
 
 def _pick_model_size(device: str) -> str:
-    """Auto-select a whisper model size that actually fits this machine.
-
-    Cached per device in ``_model_sizes`` once loaded (see ``_load_on``), so
-    this probe runs at most once per device per process.
-    """
-    if device == "cuda":
-        avail, tiers, unknown_default = _gpu_vram_gb(), _GPU_TIERS, "medium"
-    else:
-        avail, tiers, unknown_default = _system_ram_gb(), _CPU_TIERS, "small"
-    if avail is None:
-        return unknown_default
-    for threshold, size in tiers:
-        if avail >= threshold:
-            return size
-    return tiers[-1][1]
+    """Auto-select a whisper model size that fits this machine or user setting."""
+    saved = get_saved_model()
+    if saved:
+        return saved
+    specs = get_system_specs()
+    return specs.get("suggested_model", "large-v3-turbo")
 
 
 def get_model_size(device: Optional[str] = None) -> str:
-    """The whisper model size loaded (or that WOULD be picked) for a device.
-
-    With no argument, returns the size for the most-recently-used device
-    (falls back to a fresh auto-pick for 'cuda' if nothing has loaded yet) —
-    used by the startup log and the /api/devices response.
-    """
+    """The whisper model size loaded (or that WOULD be picked) for a device."""
     dev = device or (_device if _device != "uninitialised" else ("cuda" if cuda_available() else "cpu"))
     return _model_sizes.get(dev) or _pick_model_size(dev)
 
@@ -252,22 +376,17 @@ def is_loaded(device: str) -> bool:
     return device in _models
 
 
-# ---------------------------------------------------------------------------
-# First-run download progress — the server used to block on load_model() at
-# startup, so the browser hit a refused connection (not a "loading" page)
-# while a multi-GB model downloaded, which is the "stuck / looks broken"
-# complaint. main.py now loads the model on a background thread instead and
-# polls this status via /api/model-status; this section just tracks it.
-# ---------------------------------------------------------------------------
 _status_lock = threading.Lock()
 _load_status: dict = {"status": "idle", "message": "", "progress": None, "model_size": None, "device": None}
 
-# Rough ctranslate2-quantized model sizes in bytes — only used to turn a
-# growing partial-download file into an approximate percentage, so these
-# don't need to be exact.
 _MODEL_BYTES_EST = {
-    "tiny": 75_000_000, "base": 145_000_000, "small": 484_000_000,
-    "medium": 1_500_000_000, "large-v3": 3_100_000_000,
+    "tiny": 75_000_000,
+    "base": 145_000_000,
+    "small": 484_000_000,
+    "medium": 1_500_000_000,
+    "large-v3": 3_100_000_000,
+    "large-v3-turbo": 1_600_000_000,
+    "turbo": 1_600_000_000,
 }
 
 
@@ -283,30 +402,24 @@ def model_status() -> dict:
 
 
 def _poll_download_progress(size: str, stop_event: threading.Event) -> None:
-    """Watch HuggingFace's partial-download file(s) and update progress.
-
-    huggingface_hub downloads to a `*.incomplete` file under the cache's
-    blobs/ dir, growing it to the final size before atomically renaming it —
-    so its current size vs. the known approximate model size is a good stand-in
-    for a real percentage, without needing to hook into their download internals.
-
-    Resolves the cache dir via huggingface_hub's own ``HF_HUB_CACHE`` constant
-    (accounts for HF_HOME / HUGGINGFACE_HUB_CACHE / the default ``~/.cache/
-    huggingface/hub`` all at once) rather than reading ``HF_HOME`` directly —
-    that env var isn't always set (e.g. a plain dev-server launch), and this
-    poller would otherwise silently do nothing and leave progress frozen at 0%.
-    """
-    total = _MODEL_BYTES_EST.get(size)
-    if not total:
-        return
+    """Watch HuggingFace's partial-download file(s) and update progress."""
+    total = _MODEL_BYTES_EST.get(size, 1_600_000_000)
     try:
         from huggingface_hub.constants import HF_HUB_CACHE
     except ImportError:
         return
-    pattern = os.path.join(HF_HUB_CACHE, f"models--Systran--faster-whisper-{size}", "blobs", "*.incomplete")
+    patterns = [
+        os.path.join(HF_HUB_CACHE, f"models--*--faster-whisper-{size}", "blobs", "*.incomplete"),
+        os.path.join(HF_HUB_CACHE, f"models--*--*{size}*", "blobs", "*.incomplete"),
+    ]
     while not stop_event.is_set():
         try:
-            got = sum(os.path.getsize(p) for p in glob.glob(pattern))
+            got = 0
+            for pat in patterns:
+                files = glob.glob(pat)
+                if files:
+                    got = sum(os.path.getsize(p) for p in files)
+                    break
             if got > 0:
                 frac = max(0.0, min(0.99, got / total))
                 _set_status(
@@ -316,6 +429,34 @@ def _poll_download_progress(size: str, stop_event: threading.Event) -> None:
         except OSError:
             pass
         stop_event.wait(1.0)
+
+
+def switch_model(model_name: str, device: str = "auto") -> dict:
+    """Switch active model and start download/warmup in the background."""
+    valid_ids = [m["id"] for m in AVAILABLE_MODELS]
+    if model_name not in valid_ids and model_name not in ("tiny", "turbo"):
+        raise TranscriptionError(f"Unknown model '{model_name}'. Available: {valid_ids}")
+
+    save_selected_model(model_name)
+    with _load_lock:
+        _models.clear()
+        _model_sizes.clear()
+
+    _set_status(status="downloading", message=f"Preparing '{model_name}' model...", progress=0.0, model_size=model_name, device=device)
+
+    def _loader():
+        try:
+            load_model(device)
+        except Exception as e:
+            logger.exception("Failed to switch model to %s: %s", model_name, e)
+            _set_status(status="error", message=str(e), model_size=model_name, device=device)
+
+    threading.Thread(target=_loader, daemon=True).start()
+    return {
+        "status": "downloading",
+        "model_size": model_name,
+        "message": f"Switching to '{model_name}' model...",
+    }
 
 
 def _load_on(device: str) -> WhisperModel:
