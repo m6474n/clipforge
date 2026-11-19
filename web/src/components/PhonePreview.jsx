@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { captionLineStyle, captionSample, CINE_GRADE_CSS } from "../caption.js";
 
-// Clip region inside the 19.5:9 iPhone screen (matches the burned canvas), as
-// % of the SCREEN. 9:16 fills the width with thin bands; 16:9 is a centre strip;
-// square is a centred 1:1 card.
-// Same smoothstep easing as app/effects.py's _gradient_bands (the burned-in
-// render), so the CSS preview traces the same soft falloff shape instead of a
-// flat linear ramp that can read as a harder-edged band.
 function smoothstep(f) { return f * f * (3 - 2 * f); }
 function scrimGradient(strengthPct, side) {
   const m = Math.max(0, Math.min(1, (strengthPct || 0) / 100));
@@ -15,6 +9,17 @@ function scrimGradient(strengthPct, side) {
     return `rgba(0,0,0,${(m * eased).toFixed(3)}) ${f * 100}%`;
   });
   return `linear-gradient(to bottom, ${stops.join(", ")})`;
+}
+
+function hexToRgba(hex, alpha = 1) {
+  if (!hex || hex[0] !== "#") return `rgba(0,0,0,${alpha})`;
+  let c = hex.slice(1);
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  const num = parseInt(c, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function regions(aspect, fit) {
@@ -52,13 +57,16 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
+export default function PhonePreview({
+  cfg, cinematic, language, media, preparing, aspect, fit,
+  barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef,
+  framing, textOverlay, templateConfig,
+}) {
   const screenRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [screenW, setScreenW] = useState(224);
   const reg = regions(aspect, fit);
 
-  // Measure the screen width so the signature's px size scales like the render.
   useEffect(() => {
     const el = screenRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -81,12 +89,9 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
     document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
   }
 
-  // Caption point (x%, y%) within the SCREEN, kept inside the clip region.
   const free = cfg.pos_x != null && cfg.pos_y != null;
   const yFrac = free ? cfg.pos_y / 100 : ({ top: 0.12, center: 0.5, bottom: 0.88 }[cfg.position || "bottom"]);
   const x = free ? cfg.pos_x : 50;
-  // Square mode (un-dragged): caption sits in the black band JUST BELOW the square,
-  // top-anchored — matching the burned render (title above, caption hugging below).
   const squareBelow = fit === "square" && !free;
   const y = squareBelow ? (reg.top + reg.height + 2) : (reg.top + yFrac * reg.height);
 
@@ -108,7 +113,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
     document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
   }
 
-  const c = cinematic;
+  const c = cinematic || {};
   const mediaFilter = (() => {
     let f = CINE_GRADE_CSS[c.color_grade] || "";
     if (c.glow) { const g = 1 + (c.glow_strength || 0) / 100 * 0.12; f += ` brightness(${g.toFixed(3)}) contrast(1.03)`; }
@@ -117,21 +122,99 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
   const barH = c.letterbox ? 5 + (c.letterbox_size || 50) / 100 * 9 : 0;
   const fontPx = Math.max(11, (cfg.font_size || 90) * (cfg.font_scale || 1) * (reg.height / 82.05) * 0.16);
 
+  // Template config
+  const tpl = templateConfig || { preset: "none" };
+  const hasTemplate = tpl.preset && tpl.preset !== "none";
+  const videoScale = hasTemplate ? (tpl.video_scale || 100) / 100 : 1;
+
+  // Multi-frame layout calculation
+  const isMultiFrame = framing && framing.mode && framing.mode !== "solo" && framing.frames && framing.frames.length > 1;
+
   return (
     <div className="phone">
       <div ref={screenRef} className={"phone-screen" + (!media ? " empty" : "")}>
         <div className="island" />
         <div className="preview-pill"><span className="dot" />Preview</div>
 
-        {/* A link's embed fills the whole screen (just to confirm the source);
-            once downloaded it becomes a real <video> in the clip region below. */}
         {media?.kind === "embed" && (
           <iframe className="embed-fill" src={media.src} allow="autoplay; encrypted-media; picture-in-picture"
             allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
         )}
 
-        <div className="media-box" style={{ ...reg.box, filter: mediaFilter }}>
-          {media?.kind === "video" && <video ref={videoRef} src={media.src} muted loop autoPlay playsInline />}
+        {/* Custom Banner Background if selected */}
+        {tpl.preset === "custom" && tpl.custom_banner_url && (
+          <img src={tpl.custom_banner_url} alt="Custom Background" className="template-custom-bg" />
+        )}
+
+        {/* Twitter / X Template Wrapper Header */}
+        {tpl.preset === "twitter" && (
+          <div className="preview-twitter-card">
+            <div className="preview-tw-header">
+              <div className="preview-tw-avatar">
+                {tpl.avatar_url ? <img src={tpl.avatar_url} alt="avatar" /> : <span>👤</span>}
+              </div>
+              <div className="preview-tw-meta">
+                <div className="preview-tw-name">
+                  {tpl.display_name || "Creator"}
+                  {tpl.verified && (
+                    <svg className="preview-tw-badge" viewBox="0 0 24 24" fill="#1D9BF0">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                    </svg>
+                  )}
+                </div>
+                <div className="preview-tw-handle">@{tpl.username || "creator"}</div>
+              </div>
+            </div>
+            {tpl.caption_text && <div className="preview-tw-text">{tpl.caption_text}</div>}
+          </div>
+        )}
+
+        {/* Instagram Template Wrapper Header */}
+        {tpl.preset === "instagram" && (
+          <div className="preview-insta-header">
+            <div className="preview-insta-avatar">
+              {tpl.avatar_url ? <img src={tpl.avatar_url} alt="avatar" /> : <span>📸</span>}
+            </div>
+            <div className="preview-insta-name">{tpl.username || "creator"}</div>
+            <div className="preview-insta-more">•••</div>
+          </div>
+        )}
+
+        {/* Main Media Box */}
+        <div
+          className={`media-box ${isMultiFrame ? "is-split-layout" : ""}`}
+          style={{
+            ...reg.box,
+            filter: mediaFilter,
+            transform: hasTemplate ? `scale(${videoScale})` : "none",
+            transformOrigin: "center center",
+          }}
+        >
+          {media?.kind === "video" && (
+            isMultiFrame ? (
+              <div className={`split-frames-grid mode-${framing.mode}`}>
+                {framing.frames.map((f, i) => (
+                  <div key={i} className="split-frame-cell">
+                    <video
+                      src={media.src}
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      style={{
+                        transform: `scale(${100 / Math.max(10, f.width)}) translate(${-(f.x - (100 - f.width) / 2)}%, ${-(f.y - (100 - f.height) / 2)}%)`,
+                        transformOrigin: "center center",
+                      }}
+                    />
+                    <div className="split-cell-tag">Frame {i + 1}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <video ref={videoRef} src={media.src} muted loop autoPlay playsInline />
+            )
+          )}
+
           {(!media || media.kind === "unknown") && (
             <div className="media-ph">
               {preparing
@@ -141,7 +224,8 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
                   : "Add a video to preview"}
             </div>
           )}
-          {/* Cinematic overlay (inside the clip region, under captions) */}
+
+          {/* Cinematic overlay */}
           {c.bottom_gradient && <div className="ov" style={{ left: 0, right: 0, bottom: 0, height: (c.bottom_gradient_height || 25) + "%", background: scrimGradient(c.bottom_gradient_strength, "bottom") }} />}
           {c.top_gradient && <div className="ov" style={{ left: 0, right: 0, top: 0, height: (c.top_gradient_height || 20) + "%", background: scrimGradient(c.top_gradient_strength, "top") }} />}
           {c.vignette && <div className="ov" style={{ inset: 0, background: `radial-gradient(ellipse 75% 75% at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,${((c.vignette_strength || 0) / 100 * 0.9).toFixed(3)}) 115%)` }} />}
@@ -151,6 +235,46 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
           </>}
         </div>
 
+        {/* Breaking News Chyron */}
+        {tpl.preset === "news" && (
+          <div className="preview-news-chyron">
+            <div className="preview-news-badge">🔴 BREAKING NEWS</div>
+            <div className="preview-news-text">{tpl.caption_text || "LIVE: Special announcement broadcast"}</div>
+          </div>
+        )}
+
+        {/* Instagram Engagement Bar */}
+        {tpl.preset === "instagram" && (
+          <div className="preview-insta-footer">
+            <span>❤️</span>
+            <span>💬</span>
+            <span>↗️</span>
+            <span style={{ marginLeft: "auto" }}>🔖</span>
+          </div>
+        )}
+
+        {/* Fixed Text Overlay */}
+        {textOverlay && textOverlay.enabled && (textOverlay.text || "").trim() && (
+          <div
+            className="preview-fixed-text-overlay"
+            style={{
+              left: `${textOverlay.pos_x || 50}%`,
+              top: `${textOverlay.pos_y || 16}%`,
+              transform: "translate(-50%, -50%)",
+              fontFamily: textOverlay.font_family || "Roboto-Bold",
+              fontSize: `${Math.max(9, (textOverlay.font_size || 34) * (screenW / 1080))}px`,
+              color: textOverlay.text_color || "#FFFFFF",
+              backgroundColor: hexToRgba(textOverlay.bg_color || "#000000", (textOverlay.bg_opacity != null ? textOverlay.bg_opacity : 75) / 100),
+              padding: `${(textOverlay.padding || 14) * 0.35}px ${(textOverlay.padding || 14) * 0.55}px`,
+              borderRadius: `${(textOverlay.border_radius || 12) * 0.4}px`,
+              textAlign: textOverlay.alignment || "center",
+            }}
+          >
+            {textOverlay.text}
+          </div>
+        )}
+
+        {/* Square Title Header */}
         {fit === "square" && barText && (
           <div
             key={barText + barTextAnim}
@@ -161,6 +285,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
           </div>
         )}
 
+        {/* Captions Preview */}
         <div className={"cap-preview" + (dragging ? " dragging" : "")}
           style={{ left: x + "%", top: y + "%", transform: `translate(-50%, ${squareBelow ? "0" : "-50%"})`, right: "auto", bottom: "auto", maxWidth: "92%" }}>
           <span className="cap-line-wrap" onMouseDown={onDown} onTouchStart={onDown}>
@@ -168,6 +293,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
           </span>
         </div>
 
+        {/* Watermark Signature */}
         {signature?.enabled && (signature.text || "").trim() && (
           <div className="sig-preview" onMouseDown={sigDown}
             style={{

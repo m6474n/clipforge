@@ -182,7 +182,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <span className="logo"><Icons.bolt /></span>
-          <span className="brand-text">ClipForge<span className="brand-by">by Haris AI</span></span>
+          <span className="brand-text">ClipForge<span className="brand-by">by Mosen</span></span>
         </div>
         <nav className="nav">
           {NAV.map((n) => (

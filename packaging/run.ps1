@@ -16,7 +16,7 @@ $ProgressPreference = "SilentlyContinue"
 
 # --- Config ----------------------------------------------------------------
 $PyVer  = "3.11.9"
-$Repo   = "Ai-Haris/clipping-tool"
+$Repo   = "m6474n/clipforge"
 $Branch = "main"
 $ZipUrl = "https://github.com/$Repo/archive/refs/heads/$Branch.zip"
 
@@ -61,7 +61,7 @@ function Get-FileWithProgress($Url, $OutFile, $Label) {
 
 Write-Host ""
 Write-Host "  ============================================" -ForegroundColor Magenta
-Write-Host "   ClipForge  --  by Haris AI" -ForegroundColor Magenta
+Write-Host "   ClipForge  --  by Mosen" -ForegroundColor Magenta
 Write-Host "   100% local video clipper -- setup & launch" -ForegroundColor Magenta
 Write-Host "  ============================================" -ForegroundColor Magenta
 Write-Host "  Install folder: $Base"
@@ -146,7 +146,7 @@ $env:HF_HUB_DISABLE_TELEMETRY = "1"
 
 Write-Host ""
 Write-Host "  ============================================" -ForegroundColor Magenta
-Write-Host "   ClipForge by Haris AI -- ready" -ForegroundColor Magenta
+Write-Host "   ClipForge by Mosen -- ready" -ForegroundColor Magenta
 Write-Host "  ============================================" -ForegroundColor Magenta
 Write-Host "  Browser khud http://127.0.0.1:8000 par khulega."
 Write-Host "  PEHLI BAAR: whisper model app ke andar hi download + progress bar ke saath dikhega."

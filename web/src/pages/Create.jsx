@@ -63,8 +63,43 @@ export default function Create({ step, setStep }) {
   const [musicSuggest, setMusicSuggest] = useState(null);
 
   // Signature / watermark
-  const [signature, setSignature] = useState({ enabled: false, text: "@theharis.ai", pos_x: 50, pos_y: 92, size: 34, color: "#FFFFFF", opacity: 75 });
+  const [signature, setSignature] = useState({ enabled: false, text: "@mosen_here", pos_x: 50, pos_y: 92, size: 34, color: "#FFFFFF", opacity: 75 });
   const setSig = (k, v) => setSignature((s) => ({ ...s, [k]: v }));
+
+  // Framing (solo, duo, triple, quad)
+  const [framing, setFraming] = useState({
+    mode: "solo",
+    frames: [{ x: 25, y: 10, width: 50, height: 80, aspect_ratio: "9:16" }],
+  });
+
+  // Fixed Text Overlay
+  const [textOverlay, setTextOverlay] = useState({
+    enabled: false,
+    text: "WAIT TILL THE END 😱",
+    font_family: "Roboto-Bold",
+    font_size: 34,
+    text_color: "#FFFFFF",
+    bg_color: "#000000",
+    bg_opacity: 80,
+    padding: 14,
+    border_radius: 12,
+    alignment: "center",
+    pos_x: 50,
+    pos_y: 16,
+  });
+
+  // Social & Media Background Templates
+  const [templateConfig, setTemplateConfig] = useState({
+    preset: "none",
+    avatar_url: null,
+    display_name: "Alex Rivera",
+    username: "alexrivera",
+    verified: true,
+    caption_text: "You won't believe what happened next…",
+    video_scale: 100,
+    video_pos_y: 50,
+    custom_banner_url: null,
+  });
 
   // Generate
   const [busy, setBusy] = useState(false);
@@ -203,6 +238,9 @@ export default function Create({ step, setStep }) {
       square_corners: squareCorners,
     };
     if (clipLen != null) payload.clip_length = clipLen;
+    if (framing) payload.framing = framing;
+    if (textOverlay && textOverlay.enabled) payload.text_overlay = textOverlay;
+    if (templateConfig && templateConfig.preset !== "none") payload.template = templateConfig;
     if (Object.keys(studio.overrides).length) payload.caption_overrides = studio.overrides;
     if (cineActive(studio.cinematic)) payload.cinematic = studio.cinematic;
     if (musicTrack) { payload.music_track = musicTrack; payload.music_volume = musicVolume; payload.music_duck = musicDuck; payload.music_start = musicStart; }
@@ -307,6 +345,9 @@ export default function Create({ step, setStep }) {
           device={device} setDevice={setDevice} devices={devices}
           numClips={numClips} setNumClips={setNumClips} clipLen={clipLen} setClipLen={setClipLen}
           duration={vidDuration || transcript.duration || (prepView && prepView.duration)}
+          framing={framing} setFraming={setFraming}
+          textOverlay={textOverlay} setTextOverlay={setTextOverlay}
+          templateConfig={templateConfig} setTemplateConfig={setTemplateConfig}
           studio={studio} fonts={fonts} aspect={aspect} fit={fit} signature={signature} setSig={setSig} videoRef={videoRef}
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}

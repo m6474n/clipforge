@@ -1,7 +1,7 @@
 ﻿<#
   build_portable.ps1  —  ClipForge v1 portable-ZIP builder (Windows, GPU + CPU)
 
-  Isko Haris (tum) apne is PC par ek dafa chalao. Yeh ek self-contained folder
+  Isko Mosen (tum) apne is PC par ek dafa chalao. Yeh ek self-contained folder
   banata hai jismein sab kuch hota hai — embeddable Python, saari Python libraries
   (GPU CUDA libs samet), ffmpeg.exe, aur pre-downloaded whisper 'medium' model —
   phir usko ek .zip bana deta hai. Community wala bas extract karke Start.bat
@@ -204,7 +204,7 @@ Masla aaye to:
     Redistributable (x64) install kar lein, phir dobara Start.bat.
   - Port 8000 busy ho to koi aur ClipForge/uvicorn pehle se chal raha hoga.
 
-Banaya: The Haris — 100% local pipeline (yt-dlp - faster-whisper - ffmpeg)
+Banaya: The Mosen — 100% local pipeline (yt-dlp - faster-whisper - ffmpeg)
 '@
 Set-Content -Path (Join-Path $Bundle "READ ME FIRST.txt") -Value $userReadme -Encoding Ascii
 

@@ -3,7 +3,7 @@ import { Icons } from "../../components/Icons.jsx";
 // Social handles shown on the landing — brand colour drives the hover glow/fill.
 const SOCIALS = [
   {
-    label: "Instagram", href: "https://www.instagram.com/theharis.ai/", color: "#E1306C",
+    label: "Instagram", href: "https://www.instagram.com/mosen_here/", color: "#E1306C",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
         <rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" />
@@ -12,7 +12,7 @@ const SOCIALS = [
     ),
   },
   {
-    label: "TikTok", href: "https://www.tiktok.com/@theharis.ai", color: "#FE2C55",
+    label: "TikTok", href: "https://www.tiktok.com/@mosen_here", color: "#FE2C55",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor">
         <path d="M16.5 3c.3 2.2 1.6 3.6 3.8 3.85v2.6c-1.3.05-2.5-.32-3.8-1.02v5.93c0 3.6-2.62 5.74-5.6 5.74A5.36 5.36 0 0 1 5.5 14.6c0-3.02 2.5-5.2 5.6-4.9v2.74c-.4-.13-.8-.2-1.2-.2-1.3 0-2.36 1.05-2.36 2.36 0 1.3 1.06 2.36 2.36 2.36 1.4 0 2.5-1.02 2.5-2.6V3h2.6z" />
@@ -20,7 +20,7 @@ const SOCIALS = [
     ),
   },
   {
-    label: "LinkedIn", href: "https://www.linkedin.com/in/ai-haris/", color: "#0A66C2",
+    label: "LinkedIn", href: "https://www.linkedin.com/in/ai-Mosen/", color: "#0A66C2",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor">
         <path d="M20.4 3H3.6a.6.6 0 0 0-.6.6v16.8a.6.6 0 0 0 .6.6h16.8a.6.6 0 0 0 .6-.6V3.6a.6.6 0 0 0-.6-.6zM8.3 18.3H5.5V9.7h2.8v8.6zM6.9 8.5a1.63 1.63 0 1 1 0-3.26 1.63 1.63 0 0 1 0 3.26zm11.4 9.8h-2.8v-4.18c0-1 0-2.28-1.4-2.28-1.4 0-1.6 1.08-1.6 2.2v4.26H9.7V9.7h2.7v1.18h.04a2.96 2.96 0 0 1 2.66-1.46c2.85 0 3.38 1.87 3.38 4.3v4.58z" />
@@ -28,7 +28,7 @@ const SOCIALS = [
     ),
   },
   {
-    label: "YouTube", href: "https://www.youtube.com/@harisailab", color: "#FF0000",
+    label: "YouTube", href: "https://www.youtube.com/@Mosenailab", color: "#FF0000",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor">
         <path d="M23 12s0-3.2-.4-4.7a2.5 2.5 0 0 0-1.77-1.77C19.27 5.1 12 5.1 12 5.1s-7.27 0-8.83.43A2.5 2.5 0 0 0 1.4 7.3C1 8.8 1 12 1 12s0 3.2.4 4.7a2.5 2.5 0 0 0 1.77 1.77C4.73 18.9 12 18.9 12 18.9s7.27 0 8.83-.43a2.5 2.5 0 0 0 1.77-1.77C23 15.2 23 12 23 12z" />
@@ -54,7 +54,7 @@ export default function Screen1Input({
         <div className="brand-hero">
           <span className="brand-mark"><Icons.bolt /></span>
           <span className="brand-word">ClipForge</span>
-          <span className="brand-by-hero">by Haris AI</span>
+          <span className="brand-by-hero">by Mosen</span>
         </div>
         <span className="eyebrow"><span className="eyebrow-dot" />100% local pipeline · no API keys</span>
         <h1 className="landing-title">Turn any video into <span className="grad">captioned shorts</span></h1>
