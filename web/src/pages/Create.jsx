@@ -258,6 +258,7 @@ export default function Create({ step, setStep }) {
     try {
       const { job_id } = await api.generate(payload);
       jobRef.current = job_id;
+      try { sessionStorage.setItem("cf-active-job-id", job_id); } catch {}
       closeRef.current = streamProgress(job_id, (sn) => {
         setSnap(sn);
         if (sn.clips) setClips(sn.clips);
@@ -265,6 +266,7 @@ export default function Create({ step, setStep }) {
         if (sn.status === "done" || sn.status === "error" || sn.status === "cancelled") {
           setBusy(false);
           if (sn.status === "error") setError(sn.error || sn.message || "Pipeline failed.");
+          try { sessionStorage.removeItem("cf-active-job-id"); } catch {}
           closeRef.current && closeRef.current();
         }
       }, () => { setBusy(false); setError("Lost connection to the progress stream."); });
@@ -273,10 +275,31 @@ export default function Create({ step, setStep }) {
 
   function cancelGenerate() {
     if (jobRef.current) api.cancel(jobRef.current).catch(() => {});
+    try { sessionStorage.removeItem("cf-active-job-id"); } catch {}
     closeRef.current && closeRef.current();
     setBusy(false); setSnap(null); setError("");
     generatedRef.current = false;
   }
+
+  // Restore active job on reload if one was in progress
+  useEffect(() => {
+    const savedJobId = sessionStorage.getItem("cf-active-job-id");
+    if (savedJobId && !jobRef.current) {
+      jobRef.current = savedJobId;
+      setBusy(true);
+      closeRef.current = streamProgress(savedJobId, (sn) => {
+        setSnap(sn);
+        if (sn.clips) setClips(sn.clips);
+        if (sn.clip_id) setClipId(sn.clip_id);
+        if (sn.status === "done" || sn.status === "error" || sn.status === "cancelled") {
+          setBusy(false);
+          if (sn.status === "error") setError(sn.error || sn.message || "Pipeline failed.");
+          try { sessionStorage.removeItem("cf-active-job-id"); } catch {}
+          closeRef.current && closeRef.current();
+        }
+      }, () => { setBusy(false); });
+    }
+  }, []);
 
   // Screen 6 (Review) — auto-render every clip the instant this screen is entered.
   useEffect(() => {

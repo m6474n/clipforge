@@ -141,7 +141,7 @@ export default function App() {
   const chromeless = page === "create" && step === 1;
   const t = TITLES[page];
 
-  const go = (id) => { setPage(id); if (id === "create") setStep(1); setNavOpen(false); };
+  const go = (id) => { setPage(id); setNavOpen(false); };
 
   if (modelStatus.status === "needs_onboarding") {
     return (
@@ -230,7 +230,9 @@ export default function App() {
             <span className="orb orb-4" />
             <span className="orb orb-5" />
           </div>
-          {page === "create" && <Create key="create" step={step} setStep={setStep} />}
+          <div style={{ display: page === "create" ? "contents" : "none" }}>
+            <Create step={step} setStep={setStep} />
+          </div>
           {page === "library" && <Library />}
           {page === "settings" && <Settings />}
         </div>
