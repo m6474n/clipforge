@@ -257,6 +257,50 @@ class Signature(BaseModel):
     opacity: Optional[float] = Field(default=75, ge=0, le=100, description="Opacity in %.")
 
 
+class FrameCrop(BaseModel):
+    """A crop region (percentage coordinates 0-100) on the source video."""
+    x: float = Field(default=0.0, ge=0.0, le=100.0, description="Left coordinate in %")
+    y: float = Field(default=0.0, ge=0.0, le=100.0, description="Top coordinate in %")
+    width: float = Field(default=100.0, ge=5.0, le=100.0, description="Width in %")
+    height: float = Field(default=100.0, ge=5.0, le=100.0, description="Height in %")
+    aspect_ratio: str = Field(default="9:16", description="Locked aspect ratio: 1:1, 9:16, 16:9, 4:5, 3:4, custom")
+
+
+class FramingConfig(BaseModel):
+    """Multi-frame layout configuration (solo, duo, triple, quad)."""
+    mode: str = Field(default="solo", description="Layout mode: solo, duo, triple, quad")
+    frames: List[FrameCrop] = Field(default_factory=list, description="List of frame crop boxes")
+
+
+class TextOverlay(BaseModel):
+    """Fixed text overlay banner/hook (distinct from animated spoken subtitles)."""
+    enabled: bool = Field(default=False)
+    text: str = Field(default="", max_length=200)
+    font_family: str = Field(default="Roboto-Bold")
+    font_size: int = Field(default=38, ge=12, le=120)
+    text_color: str = Field(default="#FFFFFF")
+    bg_color: str = Field(default="#000000")
+    bg_opacity: float = Field(default=75.0, ge=0.0, le=100.0)
+    padding: int = Field(default=14, ge=0, le=60)
+    border_radius: int = Field(default=12, ge=0, le=50)
+    alignment: str = Field(default="center", description="left, center, right")
+    pos_x: float = Field(default=50.0, ge=0.0, le=100.0, description="% horizontal center")
+    pos_y: float = Field(default=16.0, ge=0.0, le=100.0, description="% vertical center")
+
+
+class TemplateConfig(BaseModel):
+    """Social card or background frame template (Twitter/X, Instagram, News, Custom)."""
+    preset: str = Field(default="none", description="none, twitter, instagram, news, custom")
+    avatar_url: Optional[str] = Field(default=None)
+    display_name: str = Field(default="Creator Name", max_length=50)
+    username: str = Field(default="creator", max_length=40)
+    verified: bool = Field(default=True)
+    caption_text: str = Field(default="", max_length=300)
+    video_scale: float = Field(default=100.0, ge=50.0, le=150.0, description="Scale of video inside template (50-150%)")
+    video_pos_y: float = Field(default=50.0, ge=0.0, le=100.0, description="Vertical center % inside template")
+    custom_banner_url: Optional[str] = Field(default=None)
+
+
 class GenerateRequest(BaseModel):
     """Body for POST /api/generate.
 
@@ -353,6 +397,15 @@ class GenerateRequest(BaseModel):
     )
     signature: Optional[Signature] = Field(
         default=None, description="Burned-in signature / watermark over the footage.",
+    )
+    framing: Optional[FramingConfig] = Field(
+        default=None, description="Multi-frame layout config (solo, duo, triple, quad) and crop regions.",
+    )
+    text_overlay: Optional[TextOverlay] = Field(
+        default=None, description="Fixed text overlay hook/banner with custom styling.",
+    )
+    template: Optional[TemplateConfig] = Field(
+        default=None, description="Social/media background template (Twitter/X, Instagram, News, Custom).",
     )
     device: Device = Field(
         default=Device.AUTO,

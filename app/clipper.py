@@ -116,6 +116,9 @@ class ClipOptions:
     music_start: float = 0.0           # seconds into the track to start from (beat-aligned)
     signature: Optional[dict] = None   # burned-in watermark (see app.models.Signature)
     reframe: Optional[list[dict]] = None  # manual crop keyframes (see app.models.ReframeKeyframe)
+    framing: Optional[dict] = None      # framing layout config (see app.models.FramingConfig)
+    text_overlay: Optional[dict] = None # fixed text overlay (see app.models.TextOverlay)
+    template: Optional[dict] = None     # background template (see app.models.TemplateConfig)
 
 
 def _rel_for_filter(target: Path, start_dir: Path) -> str:

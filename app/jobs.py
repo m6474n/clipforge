@@ -359,6 +359,9 @@ def _run_pipeline(job: Job) -> None:
                 music_duck=req.music_duck if req.music_duck is not None else 70.0,
                 music_start=req.music_start if req.music_start is not None else 0.0,
                 signature=req.signature.model_dump() if req.signature else None,
+                framing=req.framing.model_dump() if req.framing else None,
+                text_overlay=req.text_overlay.model_dump() if req.text_overlay else None,
+                template=req.template.model_dump() if req.template else None,
             )
             generate_clip(source_mp4, start, end, opts)
 
@@ -373,6 +376,11 @@ def _run_pipeline(job: Job) -> None:
                     "bar_text": opts.bar_text,
                     "bar_text_color": opts.bar_text_color,
                     "bar_text_anim": opts.bar_text_anim,
+                    "framing": opts.framing,
+                    "text_overlay": opts.text_overlay,
+                    "template": opts.template,
+                },
+            )
                     "cinematic": opts.cinematic,
                     "music_path": opts.music_path,
                     "music_volume": opts.music_volume,
