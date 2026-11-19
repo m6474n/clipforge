@@ -178,7 +178,7 @@ def _supports_drawtext() -> bool:
 
 
 def _inject_extra_ass(opts: ClipOptions, w: int, h: int) -> None:
-    """Render signature/title via ASS when drawtext filter is absent or as fallback."""
+    """Render signature/title/text overlay via ASS when drawtext filter is absent or as fallback."""
     if not opts.ass_path or not opts.ass_path.is_file():
         return
     extra: list[str] = []
@@ -200,6 +200,42 @@ def _inject_extra_ass(opts: ClipOptions, w: int, h: int) -> None:
         extra.append(
             f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an5\\pos({x},{y})\\fs{size}\\c&H{bgr}&\\alpha&H{ass_alpha}&\\bord2\\3c&H000000&\\shad1\\4c&H000000&}}{txt}"
         )
+
+    # Fixed text overlay fallback if drawtext unavailable
+    txt_ov = opts.text_overlay
+    if not _supports_drawtext() and txt_ov and txt_ov.get("enabled") and (txt_ov.get("text") or "").strip():
+        txt = txt_ov["text"].strip().replace("\\", "").replace("\n", " ")
+        px = max(0.0, min(1.0, float(txt_ov.get("pos_x") if txt_ov.get("pos_x") is not None else 50.0) / 100.0))
+        py = max(0.0, min(1.0, float(txt_ov.get("pos_y") if txt_ov.get("pos_y") is not None else 16.0) / 100.0))
+        scale = w / 1080.0
+        size = max(14, int(round(float(txt_ov.get("font_size") or 34) * scale)))
+        pad = max(2, int(round(float(txt_ov.get("padding") or 14) * scale * 0.4)))
+        c = (txt_ov.get("text_color") or "#FFFFFF").lstrip("#")
+        bgr = f"{c[4:6]}{c[2:4]}{c[0:2]}".upper() if len(c) == 6 else "FFFFFF"
+        bc = (txt_ov.get("bg_color") or "#000000").lstrip("#")
+        bg_bgr = f"{bc[4:6]}{bc[2:4]}{bc[0:2]}".upper() if len(bc) == 6 else "000000"
+        x = int(round(px * w))
+        y = int(round(py * h))
+        extra.append(
+            f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an5\\pos({x},{y})\\fs{size}\\c&H{bgr}&\\bord{pad}\\3c&H{bg_bgr}&}}{txt}"
+        )
+
+    # Template text fallback if drawtext unavailable
+    tpl = opts.template
+    if not _supports_drawtext() and tpl and tpl.get("preset") in ("twitter", "instagram", "news"):
+        if tpl.get("preset") == "news":
+            cap = (tpl.get("caption_text") or "LIVE: Special Announcement").strip().replace("\n", " ")
+            extra.append(f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an1\\pos(60,{h - 120})\\fs24\\c&HFFFFFF&\\bord2\\3c&H000000&}}{cap}")
+        elif tpl.get("preset") == "twitter":
+            dn = (tpl.get("display_name") or "Creator").strip()
+            un = (tpl.get("username") or "creator").strip()
+            extra.append(f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an7\\pos(60,90)\\fs26\\c&HFFFFFF&}}{dn} @{un}")
+            if tpl.get("caption_text"):
+                cap = tpl["caption_text"].strip().replace("\n", " ")
+                extra.append(f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an7\\pos(60,130)\\fs22\\c&HFFFFFF&}}{cap}")
+        elif tpl.get("preset") == "instagram":
+            un = (tpl.get("username") or "creator").strip()
+            extra.append(f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an7\\pos(40,65)\\fs24\\c&HFFFFFF&}}{un}")
 
     # Square mode bar_text fallback if drawtext unavailable
     if not _supports_drawtext() and opts.bar_text and opts.bar_text.strip():
@@ -254,18 +290,46 @@ def _signature_stages(in_label: str, sig: Optional[dict], w: int, h: int, work_d
     return [stage], "sig"
 
 
-def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir: Path) -> list[str]:
-    """Append the cinematic stages (under the captions) then the caption burn.
+def _text_overlay_stages(
+    in_label: str, text_overlay: Optional[dict], w: int, h: int, work_dir: Path
+) -> tuple[list[str], str]:
+    """Burn the fixed text overlay banner. Returns (stages, out_label).
 
-    Returns the stages that take ``in_label`` -> cinematic effects -> ``[outv]``.
-    With no effects this is just the single caption-burn stage, so the default
-    render is unchanged. Used by crop mode, where the footage fills the whole
-    frame so the effects land on the video. (Square mode applies the effects to
-    the square itself — see ``_build_square_filter_complex``.)
+    pos_x/pos_y are the center as % of frame; size and padding scale relative
+    to 1080p. Uses drawtext with solid or semi-transparent background box.
+    """
+    if not _supports_drawtext() or not text_overlay or not text_overlay.get("enabled") or not (text_overlay.get("text") or "").strip():
+        return [], in_label
+
+    scale = w / 1080.0
+    size = max(14, int(round(float(text_overlay.get("font_size") or 34) * scale)))
+    pad = max(4, int(round(float(text_overlay.get("padding") or 14) * scale)))
+    tcol = (text_overlay.get("text_color") or "#FFFFFF").replace("#", "0x")
+    bcol = (text_overlay.get("bg_color") or "#000000").replace("#", "0x")
+    alpha = max(0.0, min(1.0, float(text_overlay.get("bg_opacity") if text_overlay.get("bg_opacity") is not None else 75.0) / 100.0))
+    px = max(0.0, min(1.0, float(text_overlay.get("pos_x") if text_overlay.get("pos_x") is not None else 50.0) / 100.0))
+    py = max(0.0, min(1.0, float(text_overlay.get("pos_y") if text_overlay.get("pos_y") is not None else 16.0) / 100.0))
+    txt = _escape_drawtext(text_overlay["text"].strip())
+
+    stage = (
+        f"[{in_label}]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:"
+        f"text='{txt}':fontcolor={tcol}:fontsize={size}:"
+        f"box=1:boxcolor={bcol}@{alpha:.3f}:boxborderw={pad}:"
+        f"x=(w-text_w)*{px:.4f}:y=(h-text_h)*{py:.4f}:"
+        f"shadowcolor=black@0.4:shadowx=1:shadowy=1[txtov]"
+    )
+    return [stage], "txtov"
+
+
+def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir: Path) -> list[str]:
+    """Append the cinematic stages, text overlay, signature, then captions.
+
+    Returns the stages that take ``in_label`` -> cinematic effects -> text overlay -> signature -> ``[outv]``.
     """
     cine_stages, cap_in = effects.cinematic_stages(opts.cinematic, in_label, vw, vh)
-    sig_stages, sig_in = _signature_stages(cap_in, opts.signature, vw, vh, work_dir)
-    return cine_stages + sig_stages + [_caption_stage(sig_in, opts, work_dir)]
+    txt_stages, txt_in = _text_overlay_stages(cap_in, opts.text_overlay, vw, vh, work_dir)
+    sig_stages, sig_in = _signature_stages(txt_in, opts.signature, vw, vh, work_dir)
+    return cine_stages + txt_stages + sig_stages + [_caption_stage(sig_in, opts, work_dir)]
 
 
 def _piecewise_linear(pts: list[tuple[float, float]]) -> str:
@@ -366,14 +430,148 @@ def _crop_filter(width: int, height: int, reframe: Optional[list[dict]]) -> str:
     return f"{prefix}crop={width}:{height}:x='{x_part}':y='{y_part}'"
 
 
+def _frame_cell_filter(br_tag: str, f: Optional[dict], target_w: int, target_h: int) -> str:
+    """Helper to crop and scale one cell of a multi-frame layout."""
+    f = f or {}
+    fx = max(0.0, min(100.0, float(f.get("x", 0)))) / 100.0
+    fy = max(0.0, min(100.0, float(f.get("y", 0)))) / 100.0
+    fw = max(0.05, min(1.0 - fx, float(f.get("width", 100)) / 100.0))
+    fh = max(0.05, min(1.0 - fy, float(f.get("height", 100)) / 100.0))
+    crop = f"crop=w='trunc(iw*{fw:.4f}/2)*2':h='trunc(ih*{fh:.4f}/2)*2':x='trunc(iw*{fx:.4f}/2)*2':y='trunc(ih*{fy:.4f}/2)*2'"
+    scale = f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,crop={target_w}:{target_h}"
+    return f"[{br_tag}]{crop},{scale}"
+
+
 def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_dir: Path) -> str:
-    """-filter_complex graph for crop mode: cover+crop, cinematic FX, then captions."""
+    """-filter_complex graph for crop/framing/template modes: multi-frame split, template wrapper, cinematic FX, text overlay, captions."""
     _inject_extra_ass(opts, width, height)
-    stages = [
-        f"[0:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
-        f"{_crop_filter(width, height, opts.reframe)}[v0]"
-    ]
-    stages += _finish_stages("v0", width, height, opts, work_dir)
+    stages: list[str] = []
+
+    framing = opts.framing or {}
+    mode = framing.get("mode", "solo")
+    frames = framing.get("frames", [])
+    is_multi_frame = mode in ("duo", "triple", "quad") and len(frames) >= 2
+
+    tpl = opts.template or {}
+    has_template = tpl.get("preset") in ("twitter", "instagram", "news", "custom")
+
+    num_video_branches = (
+        2 if mode == "duo" else
+        3 if mode == "triple" else
+        4 if mode == "quad" else 1
+    ) if is_multi_frame else 1
+
+    total_branches = num_video_branches + (1 if has_template else 0)
+
+    if total_branches > 1:
+        branch_names = [f"br{i}" for i in range(total_branches)]
+        stages.append(f"[0:v]split={total_branches}" + "".join(f"[{b}]" for b in branch_names))
+        if has_template:
+            bg_branch = branch_names[0]
+            vid_branches = branch_names[1:]
+        else:
+            bg_branch = None
+            vid_branches = branch_names
+    else:
+        bg_branch = None
+        vid_branches = ["0:v"]
+
+    # Build framing layout
+    if is_multi_frame:
+        if mode == "duo":
+            cell_w = width
+            cell_h = (height // 2) - ((height // 2) % 2)
+            f0 = frames[0] if len(frames) > 0 else {}
+            f1 = frames[1] if len(frames) > 1 else {}
+            stages.append(f"{_frame_cell_filter(vid_branches[0], f0, cell_w, cell_h)}[cell0]")
+            stages.append(f"{_frame_cell_filter(vid_branches[1], f1, cell_w, cell_h)}[cell1]")
+            stages.append("[cell0][cell1]vstack[v_frame]")
+        elif mode == "triple":
+            cell_w = width
+            h0 = (height // 3) - ((height // 3) % 2)
+            h1 = h0
+            h2 = (height - h0 - h1) - ((height - h0 - h1) % 2)
+            f0 = frames[0] if len(frames) > 0 else {}
+            f1 = frames[1] if len(frames) > 1 else {}
+            f2 = frames[2] if len(frames) > 2 else {}
+            stages.append(f"{_frame_cell_filter(vid_branches[0], f0, cell_w, h0)}[cell0]")
+            stages.append(f"{_frame_cell_filter(vid_branches[1], f1, cell_w, h1)}[cell1]")
+            stages.append(f"{_frame_cell_filter(vid_branches[2], f2, cell_w, h2)}[cell2]")
+            stages.append("[cell0][cell1][cell2]vstack=inputs=3[v_frame]")
+        elif mode == "quad":
+            cell_w = (width // 2) - ((width // 2) % 2)
+            cell_h = (height // 2) - ((height // 2) % 2)
+            f0 = frames[0] if len(frames) > 0 else {}
+            f1 = frames[1] if len(frames) > 1 else {}
+            f2 = frames[2] if len(frames) > 2 else {}
+            f3 = frames[3] if len(frames) > 3 else {}
+            stages.append(f"{_frame_cell_filter(vid_branches[0], f0, cell_w, cell_h)}[cell0]")
+            stages.append(f"{_frame_cell_filter(vid_branches[1], f1, cell_w, cell_h)}[cell1]")
+            stages.append(f"{_frame_cell_filter(vid_branches[2], f2, cell_w, cell_h)}[cell2]")
+            stages.append(f"{_frame_cell_filter(vid_branches[3], f3, cell_w, cell_h)}[cell3]")
+            stages.append("[cell0][cell1]hstack[qrow0]")
+            stages.append("[cell2][cell3]hstack[qrow1]")
+            stages.append("[qrow0][qrow1]vstack[v_frame]")
+    else:
+        stages.append(
+            f"[{vid_branches[0]}]scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"{_crop_filter(width, height, opts.reframe)}[v_frame]"
+        )
+
+    # Build template wrapper if requested
+    if has_template:
+        bg_color = "0x15202B" if tpl.get("preset") == "twitter" else "0x0B0E14" if tpl.get("preset") == "news" else "0x000000"
+        stages.append(
+            f"[{bg_branch}]scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height},drawbox=0:0:iw:ih:{bg_color}:t=fill[tpl_bg]"
+        )
+        v_scale = max(50.0, min(140.0, float(tpl.get("video_scale") or 100.0))) / 100.0
+        v_y_off = max(-50.0, min(50.0, float(tpl.get("video_y_offset") or 0.0))) / 100.0
+        scaled_w = int(round(width * v_scale / 2)) * 2
+        scaled_h = int(round(height * v_scale / 2)) * 2
+        stages.append(f"[v_frame]scale={scaled_w}:{scaled_h}[v_scaled]")
+        ov_x = (width - scaled_w) // 2
+        ov_y = (height - scaled_h) // 2 + int(round(v_y_off * height))
+        stages.append(f"[tpl_bg][v_scaled]overlay={ov_x}:{ov_y}[v_tpl_ov]")
+        last_tpl = "v_tpl_ov"
+
+        preset = tpl.get("preset")
+        if preset == "news":
+            stages.append(f"[{last_tpl}]drawbox=x=40:y={height - 180}:w={width - 80}:h=60:color=0x111827@0.94:t=fill,drawbox=x=40:y={height - 220}:w=260:h=40:color=0xDC2626@0.98:t=fill[tpl_ch0]")
+            if _supports_drawtext():
+                headline = _escape_drawtext(tpl.get("caption_text") or "LIVE: Special Announcement")
+                stages.append(f"[tpl_ch0]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:text='LIVE':fontcolor=white:fontsize=22:x=60:y={height - 212},drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:text='{headline}':fontcolor=white:fontsize=24:x=60:y={height - 162}[tpl_done]")
+                v_composite = "tpl_done"
+            else:
+                v_composite = "tpl_ch0"
+        elif preset == "twitter":
+            stages.append(f"[{last_tpl}]drawbox=x=30:y=60:w={width - 60}:h=170:color=0x1E2732@0.92:t=fill[tw_bg]")
+            if _supports_drawtext():
+                disp_name = _escape_drawtext(tpl.get("display_name") or "Creator")
+                username = _escape_drawtext(tpl.get("username") or "creator")
+                caption = _escape_drawtext(tpl.get("caption_text") or "")
+                stages.append(f"[tw_bg]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:text='{disp_name}':fontcolor=white:fontsize=26:x=55:y=85,drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:text='@{username}':fontcolor=0x8899A6:fontsize=20:x=55:y=120[tw_tx0]")
+                if caption:
+                    stages.append(f"[tw_tx0]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:text='{caption}':fontcolor=white:fontsize=22:x=55:y=155[tpl_done]")
+                    v_composite = "tpl_done"
+                else:
+                    v_composite = "tw_tx0"
+            else:
+                v_composite = "tw_bg"
+        elif preset == "instagram":
+            stages.append(f"[{last_tpl}]drawbox=x=0:y=50:w={width}:h=70:color=0x000000@0.85:t=fill[ig_bg]")
+            if _supports_drawtext():
+                uname = _escape_drawtext(tpl.get("username") or "creator")
+                stages.append(f"[ig_bg]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:text='{uname}':fontcolor=white:fontsize=24:x=40:y=72[tpl_done]")
+                v_composite = "tpl_done"
+            else:
+                v_composite = "ig_bg"
+        else:
+            v_composite = last_tpl
+    else:
+        v_composite = "v_frame"
+
+    stages += _finish_stages(v_composite, width, height, opts, work_dir)
     return ";".join(stages)
 
 
@@ -439,7 +637,9 @@ def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
             )
             last = f"ttl{li}"
 
-    # Signature/watermark, then captions, on the composited canvas.
+    # Fixed text overlay, signature/watermark, then captions, on the composited canvas.
+    txt_stages, last = _text_overlay_stages(last, opts.text_overlay, w, h, work_dir)
+    stages += txt_stages
     sig_stages, last = _signature_stages(last, opts.signature, w, h, work_dir)
     stages += sig_stages
     stages.append(_caption_stage(last, opts, work_dir))
