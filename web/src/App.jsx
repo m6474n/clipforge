@@ -55,19 +55,29 @@ function ModelSplash({ status, onSwitchModel }) {
             <div className="model-splash-detail">One-time download — this machine won't need it again.</div>
           )}
           {onSwitchModel && (
-            <button
-              className="btn btn-sm"
-              style={{
-                marginTop: 20,
-                background: "transparent",
-                border: "1px solid var(--line-2)",
-                color: "var(--muted)",
-                fontSize: 12,
-              }}
-              onClick={onSwitchModel}
-            >
-              Choose a different model
-            </button>
+            <div style={{ marginTop: 22, display: "flex", justifyContent: "center" }}>
+              <button
+                className="btn btn-sm"
+                style={{
+                  background: "var(--surface-2, rgba(255,255,255,0.06))",
+                  border: "1px solid var(--line-2, rgba(255,255,255,0.2))",
+                  color: "var(--fg, #fff)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+                onClick={onSwitchModel}
+                title="Cancel current model download and pick a lighter or cached model"
+              >
+                <span style={{ fontSize: 11, color: "var(--danger, #ef4444)" }}>⏹</span>
+                <span>Stop Download & Switch Model</span>
+              </button>
+            </div>
           )}
         </>
       )}
@@ -98,6 +108,7 @@ export default function App() {
     try { return localStorage.getItem("cf-theme") || "dark"; } catch { return "dark"; }
   });
   const [modelStatus, setModelStatus] = useState({ status: "idle", message: "", progress: null });
+  const [isSwitchingModel, setIsSwitchingModel] = useState(false);
 
   // Poll until the whisper model is ready (or fails) — fast while it's
   // loading/downloading, then stops (no need to keep polling afterward).
@@ -108,14 +119,26 @@ export default function App() {
       try {
         const s = await api.modelStatus();
         if (!alive) return;
-        setModelStatus(s);
+        if (!isSwitchingModel) {
+          setModelStatus(s);
+        }
         if (s.status === "ready" || s.status === "error") return;
       } catch { /* server still coming up — keep trying */ }
       if (alive) timer = setTimeout(tick, 1000);
     }
     tick();
     return () => { alive = false; clearTimeout(timer); };
-  }, []);
+  }, [isSwitchingModel]);
+
+  const handleCancelAndSwitch = async () => {
+    setIsSwitchingModel(true);
+    setModelStatus({ status: "needs_onboarding", message: "Select a model", progress: null });
+    try {
+      await api.cancelModel();
+    } catch (err) {
+      console.warn("Cancel model call error:", err);
+    }
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -143,13 +166,14 @@ export default function App() {
 
   const go = (id) => { setPage(id); setNavOpen(false); };
 
-  if (modelStatus.status === "needs_onboarding") {
+  if (isSwitchingModel || modelStatus.status === "needs_onboarding") {
     return (
       <div className={"shell is-landing" + (navOpen ? " nav-open" : "")}>
         <ThemeSwitch theme={theme} setTheme={setTheme} fixed />
         <div className="content">
           <ModelOnboarding
             onSelect={(id) => {
+              setIsSwitchingModel(false);
               setModelStatus({ status: "downloading", message: `Preparing '${id}' model…`, progress: 0.0, model_size: id });
             }}
           />
@@ -165,7 +189,7 @@ export default function App() {
         <div className="content">
           <ModelSplash
             status={modelStatus}
-            onSwitchModel={() => setModelStatus({ status: "needs_onboarding", message: "", progress: null })}
+            onSwitchModel={handleCancelAndSwitch}
           />
         </div>
       </div>

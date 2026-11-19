@@ -109,11 +109,15 @@ export default function ModelOnboarding({ onSelect, currentModel, isModal = fals
                         <div>
                           <div className="model-name">
                             {m.name}
-                            {m.badge && (
+                            {m.downloaded ? (
+                              <span className="model-badge" style={{ background: "rgba(34, 197, 94, 0.18)", color: "#4ade80", border: "1px solid rgba(74, 222, 128, 0.35)" }}>
+                                ✓ Ready (0 MB Download)
+                              </span>
+                            ) : m.badge ? (
                               <span className={`model-badge ${m.badge === "Recommended" ? "badge-rec" : ""}`}>
                                 {m.badge}
                               </span>
-                            )}
+                            ) : null}
                           </div>
                           <div className="model-tagline">{m.tagline}</div>
                         </div>

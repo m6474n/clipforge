@@ -54,11 +54,11 @@ def _load_model_background() -> None:
         return
 
     try:
-        transcriber.load_model()
+        saved_model = transcriber.get_saved_model() or "small"
+        transcriber.switch_model(saved_model)
         logger.info(
-            "Startup complete. Whisper '%s' on %s. No external AI APIs are used.",
-            transcriber.get_model_size(),
-            transcriber.get_device(),
+            "Startup: Initializing Whisper '%s' in background.",
+            saved_model,
         )
     except Exception:  # noqa: BLE001 - status already recorded by transcriber
         logger.exception("Background whisper model load failed.")
@@ -132,12 +132,18 @@ def system_and_models() -> dict:
     """System hardware detection, available Whisper models with metadata, and current selection."""
     return {
         "system": transcriber.get_system_specs(),
-        "models": transcriber.AVAILABLE_MODELS,
+        "models": transcriber.get_available_models(),
         "selected_model": transcriber.get_saved_model(),
         "is_configured": transcriber.is_configured(),
         "active_model": transcriber.get_model_size(),
         "status": transcriber.model_status(),
     }
+
+
+@app.post("/api/model/cancel")
+def cancel_model() -> dict:
+    """Abort the current background model download/load and return to onboarding selection."""
+    return transcriber.cancel_load()
 
 
 @app.post("/api/model/select")

@@ -271,6 +271,34 @@ AVAILABLE_MODELS: list[dict] = [
 ]
 
 
+def is_model_downloaded(model_id: str) -> bool:
+    """Check if model weights exist locally in the HuggingFace cache."""
+    try:
+        from huggingface_hub.constants import HF_HUB_CACHE
+        candidates = [
+            f"models--Systran--faster-whisper-{model_id}",
+            f"models--mobiuslabsgmbh--faster-whisper-{model_id}",
+            f"models--openai--whisper-{model_id}",
+        ]
+        for c in candidates:
+            p = Path(HF_HUB_CACHE) / c / "snapshots"
+            if p.is_dir() and (list(p.glob("*/*.bin")) or list(p.glob("*/model.bin"))):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def get_available_models() -> list[dict]:
+    """Return available models decorated with real local cache status."""
+    res = []
+    for m in AVAILABLE_MODELS:
+        item = dict(m)
+        item["downloaded"] = is_model_downloaded(m["id"])
+        res.append(item)
+    return res
+
+
 def get_saved_model() -> Optional[str]:
     """Return the model size configured by the user, if any."""
     if env_model := os.environ.get("WHISPER_MODEL"):
@@ -431,27 +459,54 @@ def _poll_download_progress(size: str, stop_event: threading.Event) -> None:
         stop_event.wait(1.0)
 
 
+_load_token: int = 0
+_load_token_lock = threading.Lock()
+
+
+def cancel_load() -> dict:
+    """Abort the current model download/load and return to onboarding status."""
+    global _load_token
+    with _load_token_lock:
+        _load_token += 1
+    _set_status(
+        status="needs_onboarding",
+        message="Model download stopped. Select a model below.",
+        progress=None,
+        model_size=None,
+    )
+    logger.info("Model download/load cancelled by user.")
+    return {"status": "ok", "message": "Load cancelled"}
+
+
 def switch_model(model_name: str, device: str = "auto") -> dict:
     """Switch active model and start download/warmup in the background."""
+    global _load_token
     valid_ids = [m["id"] for m in AVAILABLE_MODELS]
     if model_name not in valid_ids and model_name not in ("tiny", "turbo"):
         raise TranscriptionError(f"Unknown model '{model_name}'. Available: {valid_ids}")
 
     save_selected_model(model_name)
+    with _load_token_lock:
+        _load_token += 1
+        token = _load_token
+
     with _load_lock:
         _models.clear()
         _model_sizes.clear()
 
     _set_status(status="downloading", message=f"Preparing '{model_name}' model...", progress=0.0, model_size=model_name, device=device)
 
-    def _loader():
+    def _loader(t: int):
         try:
             load_model(device)
         except Exception as e:
+            with _load_token_lock:
+                if t != _load_token:
+                    return
             logger.exception("Failed to switch model to %s: %s", model_name, e)
             _set_status(status="error", message=str(e), model_size=model_name, device=device)
 
-    threading.Thread(target=_loader, daemon=True).start()
+    threading.Thread(target=_loader, args=(token,), daemon=True).start()
     return {
         "status": "downloading",
         "model_size": model_name,
@@ -461,26 +516,37 @@ def switch_model(model_name: str, device: str = "auto") -> dict:
 
 def _load_on(device: str) -> WhisperModel:
     """Load (or reuse the cached) model on a concrete device ('cuda'/'cpu')."""
-    global _device
+    global _device, _load_token
     with _load_lock:
         if device in _models:
             _device = device
             return _models[device]
-        compute = _COMPUTE_TYPE[device]
-        size = _pick_model_size(device)
+
+    with _load_token_lock:
+        token = _load_token
+
+    compute = _COMPUTE_TYPE[device]
+    size = _pick_model_size(device)
+    with _load_lock:
         _model_sizes[device] = size
-        _set_status(status="downloading", message=f"Preparing the '{size}' AI model...",
-                    progress=0.0, model_size=size, device=device)
-        logger.info("Loading whisper '%s' on %s (%s)...", size, device, compute)
+    _set_status(status="downloading", message=f"Preparing the '{size}' AI model...",
+                progress=0.0, model_size=size, device=device)
+    logger.info("Loading whisper '%s' on %s (%s)...", size, device, compute)
 
-        stop_event = threading.Event()
-        poller = threading.Thread(target=_poll_download_progress, args=(size, stop_event), daemon=True)
-        poller.start()
-        try:
-            model = WhisperModel(size, device=device, compute_type=compute)
-        finally:
-            stop_event.set()
+    stop_event = threading.Event()
+    poller = threading.Thread(target=_poll_download_progress, args=(size, stop_event), daemon=True)
+    poller.start()
+    try:
+        model = WhisperModel(size, device=device, compute_type=compute)
+    finally:
+        stop_event.set()
 
+    with _load_token_lock:
+        if token != _load_token:
+            logger.info("Discarding superseded model load '%s'", size)
+            raise TranscriptionError("Model load cancelled by user.")
+
+    with _load_lock:
         _models[device] = model
         _device = device
         _set_status(status="ready", message="Ready", progress=1.0, model_size=size, device=device)

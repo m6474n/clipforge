@@ -21,6 +21,7 @@ async function jpost(path, body) {
 export const api = {
   health: () => jget("/health"),
   modelStatus: () => jget("/api/model-status"),
+  cancelModel: () => jpost("/api/model/cancel", {}),
   systemAndModels: () => jget("/api/system-and-models"),
   selectModel: (model_id, device = "auto") => jpost("/api/model/select", { model_id, device }),
   devices: () => jget("/api/devices"),
