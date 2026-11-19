@@ -1256,6 +1256,25 @@ select optgroup { font-weight: 700; }
 .crop-handle.br { bottom: -7px; right: -7px; cursor: nwse-resize; }
 .framing-help-note { font-size: 12px; color: var(--muted-2); line-height: 1.45; }
 
+.framing-playback-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+}
+.framing-playback-left { display: flex; align-items: center; gap: 6px; }
+.framing-play-btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 5px 12px; border-radius: 6px; }
+.framing-step-btn { padding: 4px 8px; font-size: 11px; font-family: var(--mono); color: var(--muted); }
+.framing-scrub-group { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 180px; }
+.framing-scrub-slider { flex: 1; accent-color: var(--accent); cursor: pointer; }
+.framing-time-display { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.framing-mute-btn { padding: 6px 8px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
+.framing-mute-btn:hover { color: var(--fg); }
+
 /* Text Overlay Editor */
 .text-overlay-editor-wrap { display: flex; flex-direction: column; gap: 14px; }
 .text-overlay-header-row {

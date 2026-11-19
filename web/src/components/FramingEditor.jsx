@@ -57,8 +57,62 @@ function defaultFramesFor(mode, ratioId) {
 
 export default function FramingEditor({ media, framing, setFraming, videoRef }) {
   const containerRef = useRef(null);
+  const localVideoRef = useRef(null);
   const [activeFrameIdx, setActiveFrameIdx] = useState(0);
   const [dragState, setDragState] = useState(null); // { type: 'move'|'resize', corner, startX, startY, origFrame }
+
+  // Video playback & scrubbing state
+  const [playing, setPlaying] = useState(false);
+  const [curTime, setCurTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [muted, setMuted] = useState(true);
+
+  const handleVideoRef = (el) => {
+    localVideoRef.current = el;
+    if (videoRef) {
+      if (typeof videoRef === "function") videoRef(el);
+      else videoRef.current = el;
+    }
+  };
+
+  const togglePlay = () => {
+    const v = localVideoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play().then(() => setPlaying(true)).catch((err) => console.warn("Video play error:", err));
+    } else {
+      v.pause();
+      setPlaying(false);
+    }
+  };
+
+  const seek = (time) => {
+    const v = localVideoRef.current;
+    if (!v) return;
+    const t = Math.max(0, Math.min(duration || 0, time));
+    v.currentTime = t;
+    setCurTime(t);
+  };
+
+  const stepTime = (delta) => {
+    const v = localVideoRef.current;
+    if (!v) return;
+    seek(v.currentTime + delta);
+  };
+
+  const toggleMute = () => {
+    const v = localVideoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
+
+  const fmtTime = (sec) => {
+    if (!sec || isNaN(sec) || sec < 0) return "0:00";
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   const mode = framing?.mode || "solo";
   const frames = framing?.frames && framing.frames.length > 0 ? framing.frames : defaultFramesFor("solo", "9:16");
@@ -236,15 +290,33 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
       )}
 
       {/* Interactive Video Crop Stage */}
-      <div className="framing-canvas-container" ref={containerRef}>
+      <div
+        className="framing-canvas-container"
+        ref={containerRef}
+        onClick={(e) => {
+          // If user clicks on background canvas (not a crop box handle), toggle playback
+          if (e.target === containerRef.current || e.target.classList.contains("framing-source-video")) {
+            togglePlay();
+          }
+        }}
+      >
         {media ? (
           <video
-            ref={videoRef}
+            ref={handleVideoRef}
             src={media.src || media}
             className="framing-source-video"
             playsInline
-            muted
+            muted={muted}
             loop
+            onLoadedMetadata={(e) => {
+              setDuration(e.target.duration || 0);
+            }}
+            onTimeUpdate={(e) => {
+              setCurTime(e.target.currentTime || 0);
+            }}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onEnded={() => setPlaying(false)}
           />
         ) : (
           <div className="framing-empty-placeholder">
@@ -283,6 +355,85 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
           );
         })}
       </div>
+
+      {/* Video Playback & Timeline Controls */}
+      {media && (
+        <div className="framing-playback-bar">
+          <div className="framing-playback-left">
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary framing-play-btn"
+              onClick={togglePlay}
+              title={playing ? "Pause" : "Play"}
+            >
+              {playing ? (
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                  <polygon points="6 3 20 12 6 21 6 3" />
+                </svg>
+              )}
+              <span>{playing ? "Pause" : "Play Video"}</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost framing-step-btn"
+              onClick={() => stepTime(-5)}
+              title="Step back 5 seconds"
+            >
+              -5s
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost framing-step-btn"
+              onClick={() => stepTime(5)}
+              title="Step forward 5 seconds"
+            >
+              +5s
+            </button>
+          </div>
+
+          <div className="framing-scrub-group">
+            <input
+              type="range"
+              className="range framing-scrub-slider"
+              min={0}
+              max={duration || 100}
+              step={0.1}
+              value={curTime}
+              onChange={(e) => seek(+e.target.value)}
+            />
+            <span className="framing-time-display">
+              {fmtTime(curTime)} / {fmtTime(duration)}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost framing-mute-btn"
+            onClick={toggleMute}
+            title={muted ? "Unmute audio" : "Mute audio"}
+          >
+            {muted ? (
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
+            )}
+          </button>
+        </div>
+      )}
 
       <div className="framing-help-note">
         💡 <strong>Tip:</strong> Drag inside any frame to reposition. Drag corner handles to scale. In locked aspect ratios, sizing automatically maintains the chosen ratio constraint.
