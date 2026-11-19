@@ -87,11 +87,22 @@ class Job:
         self.stage = "queued"
         self.stage_progress = 0.0  # 0..1 within the current stage
         self.progress = 0.0  # 0..1 overall (derived from stage span)
-        self.message = "Queued..."
+        self.message = "Queued in processing pool..."
         self.clips: List[dict] = []
         self.error: Optional[str] = None
         self.clip_id: Optional[str] = None
         self.cancelled = False
+        self.start_time = time.time()
+        self.eta_seconds: Optional[int] = None
+        self.logs: List[dict] = [
+            {
+                "id": "log-1",
+                "time": time.strftime("%H:%M:%S"),
+                "stage": "queued",
+                "message": "Job accepted and queued for execution",
+                "pct": 0,
+            }
+        ]
         self._lock = threading.Lock()
         self._rev = 0  # bumped on every change so the SSE stream only sends diffs
 
@@ -103,12 +114,27 @@ class Job:
             self.cancelled = True
             self.status = "cancelled"
             self.stage = "cancelled"
-            self.message = "Cancelled."
+            self.message = "Processing was cancelled by user."
+            self._record_log("cancelled", self.message)
             self._rev += 1
+
+    def _record_log(self, stage: str, message: str) -> None:
+        """Internal helper to append a clean log entry if the message changed."""
+        now_str = time.strftime("%H:%M:%S")
+        if not self.logs or self.logs[-1]["message"] != message:
+            self.logs.append({
+                "id": f"log-{len(self.logs) + 1}",
+                "time": now_str,
+                "stage": stage,
+                "message": message,
+                "pct": int(round(self.progress * 100)),
+            })
+            if len(self.logs) > 50:
+                self.logs = self.logs[-50:]
 
     # -- mutation ---------------------------------------------------------- #
     def set_stage(self, stage: str, frac: float, message: str) -> None:
-        """Move to/within a stage and recompute the overall progress band."""
+        """Move to/within a stage and recompute the overall progress band and ETA."""
         frac = min(1.0, max(0.0, frac))
         lo, hi = _STAGE_SPANS.get(stage, (0.0, 0.0))
         with self._lock:
@@ -117,12 +143,26 @@ class Job:
             self.stage_progress = frac
             self.progress = lo + frac * (hi - lo)
             self.message = message
+
+            # Dynamic ETA calculation
+            elapsed = max(1.0, time.time() - self.start_time)
+            if self.progress > 0.04 and self.progress < 0.98:
+                total_est = elapsed / self.progress
+                self.eta_seconds = max(1, int(round(total_est - elapsed)))
+            elif self.progress >= 0.98:
+                self.eta_seconds = 0
+            else:
+                self.eta_seconds = None
+
+            self._record_log(stage, message)
             self._rev += 1
 
     def add_clip(self, clip: dict) -> None:
         """Publish a finished clip so the UI can show it before the run ends."""
         with self._lock:
             self.clips.append(clip)
+            title = clip.get("title") or f"Clip {clip.get('index', 0) + 1}"
+            self._record_log("rendering", f"Rendered and verified: '{title}' ({clip.get('start')}s - {clip.get('end')}s)")
             self._rev += 1
 
     def finish(self, clips: List[dict]) -> None:
@@ -131,8 +171,10 @@ class Job:
             self.stage = "done"
             self.stage_progress = 1.0
             self.progress = 1.0
-            self.message = f"Done - {len(clips)} clip(s) ready."
+            self.eta_seconds = 0
+            self.message = f"Pipeline complete — {len(clips)} clip(s) ready."
             self.clips = clips
+            self._record_log("done", f"All {len(clips)} clip(s) successfully generated and ready for export!")
             self._rev += 1
 
     def fail(self, message: str) -> None:
@@ -141,12 +183,14 @@ class Job:
             self.stage = "error"
             self.error = message
             self.message = message
+            self._record_log("error", f"Pipeline error: {message}")
             self._rev += 1
 
     # -- read -------------------------------------------------------------- #
     def snapshot(self) -> dict:
-        """Return a JSON-serialisable view of the current state."""
+        """Return a JSON-serialisable view of the current state with ETA and logs."""
         with self._lock:
+            elapsed = int(round(time.time() - self.start_time))
             return {
                 "id": self.id,
                 "status": self.status,
@@ -158,6 +202,9 @@ class Job:
                 "error": self.error,
                 "clip_id": self.clip_id,
                 "rev": self._rev,
+                "elapsed": elapsed,
+                "eta": self.eta_seconds,
+                "logs": list(self.logs),
             }
 
 
@@ -379,8 +426,6 @@ def _run_pipeline(job: Job) -> None:
                     "framing": opts.framing,
                     "text_overlay": opts.text_overlay,
                     "template": opts.template,
-                },
-            )
                     "cinematic": opts.cinematic,
                     "music_path": opts.music_path,
                     "music_volume": opts.music_volume,
