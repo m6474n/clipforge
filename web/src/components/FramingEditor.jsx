@@ -291,33 +291,42 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
 
       {/* Interactive Video Crop Stage */}
       <div
-        className="framing-canvas-container"
+        className={`framing-canvas-container ${dragState ? "is-dragging" : ""}`}
         ref={containerRef}
         onClick={(e) => {
           // If user clicks on background canvas (not a crop box handle), toggle playback
-          if (e.target === containerRef.current || e.target.classList.contains("framing-source-video")) {
+          if (media?.kind !== "embed" && (e.target === containerRef.current || e.target.classList.contains("framing-source-video"))) {
             togglePlay();
           }
         }}
       >
         {media ? (
-          <video
-            ref={handleVideoRef}
-            src={media.src || media}
-            className="framing-source-video"
-            playsInline
-            muted={muted}
-            loop
-            onLoadedMetadata={(e) => {
-              setDuration(e.target.duration || 0);
-            }}
-            onTimeUpdate={(e) => {
-              setCurTime(e.target.currentTime || 0);
-            }}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onEnded={() => setPlaying(false)}
-          />
+          media.kind === "embed" ? (
+            <iframe
+              src={media.src}
+              className="framing-source-embed"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          ) : (
+            <video
+              ref={handleVideoRef}
+              src={media.src || media}
+              className="framing-source-video"
+              playsInline
+              muted={muted}
+              loop
+              onLoadedMetadata={(e) => {
+                setDuration(e.target.duration || 0);
+              }}
+              onTimeUpdate={(e) => {
+                setCurTime(e.target.currentTime || 0);
+              }}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onEnded={() => setPlaying(false)}
+            />
+          )
         ) : (
           <div className="framing-empty-placeholder">
             <span>Video source preview</span>
@@ -358,81 +367,95 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
 
       {/* Video Playback & Timeline Controls */}
       {media && (
-        <div className="framing-playback-bar">
-          <div className="framing-playback-left">
+        media.kind === "embed" ? (
+          <div className="framing-playback-bar framing-embed-notice">
+            <div className="framing-playback-left">
+              <span className="framing-embed-badge">
+                <span className="dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", display: "inline-block", marginRight: 6 }} />
+                YouTube Player Active
+              </span>
+            </div>
+            <div className="ctl-hint" style={{ fontSize: 12 }}>
+              Play and seek the video directly using YouTube controls above while adjusting your framing boxes. Video is downloading in the background.
+            </div>
+          </div>
+        ) : (
+          <div className="framing-playback-bar">
+            <div className="framing-playback-left">
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary framing-play-btn"
+                onClick={togglePlay}
+                title={playing ? "Pause" : "Play"}
+              >
+                {playing ? (
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                    <rect x="6" y="4" width="4" height="16" rx="1" />
+                    <rect x="14" y="4" width="4" height="16" rx="1" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                    <polygon points="6 3 20 12 6 21 6 3" />
+                  </svg>
+                )}
+                <span>{playing ? "Pause" : "Play Video"}</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost framing-step-btn"
+                onClick={() => stepTime(-5)}
+                title="Step back 5 seconds"
+              >
+                -5s
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost framing-step-btn"
+                onClick={() => stepTime(5)}
+                title="Step forward 5 seconds"
+              >
+                +5s
+              </button>
+            </div>
+
+            <div className="framing-scrub-group">
+              <input
+                type="range"
+                className="range framing-scrub-slider"
+                min={0}
+                max={duration || 100}
+                step={0.1}
+                value={curTime}
+                onChange={(e) => seek(+e.target.value)}
+              />
+              <span className="framing-time-display">
+                {fmtTime(curTime)} / {fmtTime(duration)}
+              </span>
+            </div>
+
             <button
               type="button"
-              className="btn btn-sm btn-secondary framing-play-btn"
-              onClick={togglePlay}
-              title={playing ? "Pause" : "Play"}
+              className="btn btn-sm btn-ghost framing-mute-btn"
+              onClick={toggleMute}
+              title={muted ? "Unmute audio" : "Mute audio"}
             >
-              {playing ? (
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
-                  <rect x="6" y="4" width="4" height="16" rx="1" />
-                  <rect x="14" y="4" width="4" height="16" rx="1" />
+              {muted ? (
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <line x1="23" y1="9" x2="17" y2="15" />
+                  <line x1="17" y1="9" x2="23" y2="15" />
                 </svg>
               ) : (
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
-                  <polygon points="6 3 20 12 6 21 6 3" />
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                 </svg>
               )}
-              <span>{playing ? "Pause" : "Play Video"}</span>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-ghost framing-step-btn"
-              onClick={() => stepTime(-5)}
-              title="Step back 5 seconds"
-            >
-              -5s
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-ghost framing-step-btn"
-              onClick={() => stepTime(5)}
-              title="Step forward 5 seconds"
-            >
-              +5s
             </button>
           </div>
-
-          <div className="framing-scrub-group">
-            <input
-              type="range"
-              className="range framing-scrub-slider"
-              min={0}
-              max={duration || 100}
-              step={0.1}
-              value={curTime}
-              onChange={(e) => seek(+e.target.value)}
-            />
-            <span className="framing-time-display">
-              {fmtTime(curTime)} / {fmtTime(duration)}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost framing-mute-btn"
-            onClick={toggleMute}
-            title={muted ? "Unmute audio" : "Mute audio"}
-          >
-            {muted ? (
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <line x1="23" y1="9" x2="17" y2="15" />
-                <line x1="17" y1="9" x2="23" y2="15" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-              </svg>
-            )}
-          </button>
-        </div>
+        )
       )}
 
       <div className="framing-help-note">

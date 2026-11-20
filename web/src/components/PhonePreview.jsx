@@ -57,6 +57,66 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
+function getEmbedSrc(src, muted = true) {
+  if (!src) return "";
+  const sep = src.includes("?") ? "&" : "?";
+  if (src.includes("youtube.com/embed/")) {
+    return `${src}${sep}autoplay=1&mute=${muted ? "1" : "0"}&controls=0&loop=1`;
+  }
+  return src;
+}
+
+function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, loop = true }) {
+  if (!media) return null;
+  const f = frame || { x: 0, y: 0, width: 100, height: 100 };
+  const w = Math.max(1, f.width || 100);
+  const h = Math.max(1, f.height || 100);
+  const left = -((f.x || 0) / w) * 100;
+  const top = -((f.y || 0) / h) * 100;
+  const widthPct = (100 / w) * 100;
+  const heightPct = (100 / h) * 100;
+
+  const style = {
+    position: "absolute",
+    left: `${left}%`,
+    top: `${top}%`,
+    width: `${widthPct}%`,
+    height: `${heightPct}%`,
+    maxWidth: "none",
+    maxHeight: "none",
+    objectFit: "fill",
+    border: 0,
+    pointerEvents: "none",
+    display: "block",
+  };
+
+  if (media.kind === "embed") {
+    return (
+      <iframe
+        className="framed-media-element"
+        src={getEmbedSrc(media.src, muted)}
+        style={style}
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    );
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      className="framed-media-element"
+      src={media.src}
+      muted={muted}
+      loop={loop}
+      autoPlay={autoPlay}
+      playsInline
+      style={style}
+    />
+  );
+}
+
 export default function PhonePreview({
   cfg, cinematic, language, media, preparing, aspect, fit,
   barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef,
@@ -136,11 +196,6 @@ export default function PhonePreview({
         <div className="island" />
         <div className="preview-pill"><span className="dot" />Preview</div>
 
-        {media?.kind === "embed" && (
-          <iframe className="embed-fill" src={media.src} allow="autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
-        )}
-
         {/* Custom Banner Background if selected */}
         {tpl.preset === "custom" && tpl.custom_banner_url && (
           <img src={tpl.custom_banner_url} alt="Custom Background" className="template-custom-bg" />
@@ -188,34 +243,24 @@ export default function PhonePreview({
             filter: mediaFilter,
             transform: hasTemplate ? `scale(${videoScale})` : "none",
             transformOrigin: "center center",
+            position: "absolute",
+            overflow: "hidden",
           }}
         >
-          {media?.kind === "video" && (
+          {media && (media.kind === "video" || media.kind === "embed") ? (
             isMultiFrame ? (
               <div className={`split-frames-grid mode-${framing.mode}`}>
                 {framing.frames.map((f, i) => (
                   <div key={i} className="split-frame-cell">
-                    <video
-                      src={media.src}
-                      muted
-                      loop
-                      autoPlay
-                      playsInline
-                      style={{
-                        transform: `scale(${100 / Math.max(10, f.width)}) translate(${-(f.x - (100 - f.width) / 2)}%, ${-(f.y - (100 - f.height) / 2)}%)`,
-                        transformOrigin: "center center",
-                      }}
-                    />
+                    <FramedMedia media={media} frame={f} />
                     <div className="split-cell-tag">Frame {i + 1}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <video ref={videoRef} src={media.src} muted loop autoPlay playsInline />
+              <FramedMedia media={media} frame={framing?.frames?.[0]} videoRef={videoRef} />
             )
-          )}
-
-          {(!media || media.kind === "unknown") && (
+          ) : (
             <div className="media-ph">
               {preparing
                 ? <><span className="spinner" /> Preparing preview…</>

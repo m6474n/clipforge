@@ -487,17 +487,20 @@ def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_
             stages.append(f"{_frame_cell_filter(vid_branches[1], f1, cell_w, cell_h)}[cell1]")
             stages.append("[cell0][cell1]vstack[v_frame]")
         elif mode == "triple":
-            cell_w = width
-            h0 = (height // 3) - ((height // 3) % 2)
-            h1 = h0
-            h2 = (height - h0 - h1) - ((height - h0 - h1) % 2)
+            w0 = (width // 2) - ((width // 2) % 2)
+            h0 = height
+            w1 = width - w0
+            h1 = (height // 2) - ((height // 2) % 2)
+            w2 = w1
+            h2 = height - h1
             f0 = frames[0] if len(frames) > 0 else {}
             f1 = frames[1] if len(frames) > 1 else {}
             f2 = frames[2] if len(frames) > 2 else {}
-            stages.append(f"{_frame_cell_filter(vid_branches[0], f0, cell_w, h0)}[cell0]")
-            stages.append(f"{_frame_cell_filter(vid_branches[1], f1, cell_w, h1)}[cell1]")
-            stages.append(f"{_frame_cell_filter(vid_branches[2], f2, cell_w, h2)}[cell2]")
-            stages.append("[cell0][cell1][cell2]vstack=inputs=3[v_frame]")
+            stages.append(f"{_frame_cell_filter(vid_branches[0], f0, w0, h0)}[cell0]")
+            stages.append(f"{_frame_cell_filter(vid_branches[1], f1, w1, h1)}[cell1]")
+            stages.append(f"{_frame_cell_filter(vid_branches[2], f2, w2, h2)}[cell2]")
+            stages.append("[cell1][cell2]vstack[right_stack]")
+            stages.append("[cell0][right_stack]hstack[v_frame]")
         elif mode == "quad":
             cell_w = (width // 2) - ((width // 2) % 2)
             cell_h = (height // 2) - ((height // 2) % 2)
@@ -513,10 +516,14 @@ def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_
             stages.append("[cell2][cell3]hstack[qrow1]")
             stages.append("[qrow0][qrow1]vstack[v_frame]")
     else:
-        stages.append(
-            f"[{vid_branches[0]}]scale={width}:{height}:force_original_aspect_ratio=increase,"
-            f"{_crop_filter(width, height, opts.reframe)}[v_frame]"
-        )
+        f0 = frames[0] if frames and len(frames) > 0 else None
+        if f0 and (f0.get("x", 0) != 0 or f0.get("y", 0) != 0 or f0.get("width", 100) != 100 or f0.get("height", 100) != 100) and not opts.reframe:
+            stages.append(f"{_frame_cell_filter(vid_branches[0], f0, width, height)}[v_frame]")
+        else:
+            stages.append(
+                f"[{vid_branches[0]}]scale={width}:{height}:force_original_aspect_ratio=increase,"
+                f"{_crop_filter(width, height, opts.reframe)}[v_frame]"
+            )
 
     # Build template wrapper if requested
     if has_template:
