@@ -509,7 +509,12 @@ def _text_overlay_stages(
     px = max(0.0, min(1.0, float(text_overlay.get("pos_x") if text_overlay.get("pos_x") is not None else 50.0) / 100.0))
     py = max(0.0, min(1.0, float(text_overlay.get("pos_y") if text_overlay.get("pos_y") is not None else 16.0) / 100.0))
 
-    if fit_mode == "square":
+    is_square = (
+        fit_mode == "square"
+        or fit_mode == FitMode.SQUARE
+        or getattr(fit_mode, "value", None) == "square"
+    )
+    if is_square:
         inner = max(0, w - 60)
         band = max(0, (h - inner) // 2)
         pos_y_px = int(round(band + py * inner))
@@ -529,7 +534,7 @@ def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir:
     Returns the stages that take ``in_label`` -> cinematic effects -> text overlay -> signature -> ``[outv]``.
     """
     cine_stages, cap_in = effects.cinematic_stages(opts.cinematic, in_label, vw, vh)
-    txt_stages, txt_in = _text_overlay_stages(cap_in, opts.text_overlay, vw, vh, work_dir, fit_mode=opts.fit)
+    txt_stages, txt_in = _text_overlay_stages(cap_in, opts.text_overlay, vw, vh, work_dir, fit_mode=opts.fit_mode)
     sig_stages, sig_in = _signature_stages(txt_in, opts.signature, vw, vh, work_dir)
     return cine_stages + txt_stages + sig_stages + [_caption_stage(sig_in, opts, work_dir)]
 
