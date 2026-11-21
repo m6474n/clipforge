@@ -674,6 +674,8 @@ export default function PhonePreview({
                 left: `${textOverlay.pos_x != null ? textOverlay.pos_x : 50}%`,
                 top: `${topPct}%`,
                 transform: "translate(-50%, -50%)",
+                width: "max-content",
+                maxWidth: "92%",
                 fontFamily: textOverlay.font_family || "Roboto-Bold",
                 fontSize: `${fontSize}px`,
                 color: textOverlay.text_color || "#FFFFFF",

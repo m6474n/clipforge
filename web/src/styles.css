@@ -1352,15 +1352,18 @@ select optgroup { font-weight: 700; }
 .preview-fixed-text-overlay {
   position: absolute;
   z-index: 25;
-  word-break: break-word;
+  width: max-content;
+  max-width: 92%;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
   line-height: 1.25;
   box-shadow: 0 4px 18px rgba(0,0,0,0.45);
   cursor: grab;
   user-select: none;
   touch-action: none;
   transition: box-shadow 0.15s ease;
-  max-width: 90%;
-  white-space: pre-wrap;
 }
 .preview-fixed-text-overlay:active {
   cursor: grabbing;
