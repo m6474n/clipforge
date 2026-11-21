@@ -1,10 +1,15 @@
 const FONTS = [
-  "Roboto-Bold",
-  "Outfit",
+  "Roboto",
   "Montserrat",
+  "Poppins",
   "Bebas Neue",
-  "Impact",
-  "Open Sans",
+  "Anton",
+  "Bangers",
+  "Luckiest Guy",
+  "Oswald",
+  "Alfa Slab One",
+  "Permanent Marker",
+  "Archivo Black",
 ];
 
 const PRESET_COLORS = [
@@ -20,7 +25,7 @@ export default function TextOverlayEditor({ textOverlay, setTextOverlay }) {
   const current = textOverlay || {
     enabled: false,
     text: "WATCH TILL THE END 😱",
-    font_family: "Roboto-Bold",
+    font_family: "Roboto",
     font_size: 52,
     text_color: "#FFFFFF",
     bg_color: "#000000",

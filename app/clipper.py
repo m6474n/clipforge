@@ -15,9 +15,12 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+
+from PIL import Image, ImageDraw, ImageFont
 
 from . import effects
 from .models import AspectRatio, ClipGenerationError, FitMode
@@ -202,35 +205,6 @@ def _inject_extra_ass(opts: ClipOptions, w: int, h: int) -> None:
             f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an5\\pos({x},{y})\\fs{size}\\c&H{bgr}&\\alpha&H{ass_alpha}&\\bord2\\3c&H000000&\\shad1\\4c&H000000&}}{txt}"
         )
 
-    # Fixed text overlay fallback if drawtext unavailable
-    txt_ov = opts.text_overlay
-    if not _supports_drawtext() and txt_ov and txt_ov.get("enabled") and (txt_ov.get("text") or "").strip():
-        txt = txt_ov["text"].strip().replace("\\", "").replace("\n", "\\N")
-        px = max(0.0, min(1.0, float(txt_ov.get("pos_x") if txt_ov.get("pos_x") is not None else 50.0) / 100.0))
-        py = max(0.0, min(1.0, float(txt_ov.get("pos_y") if txt_ov.get("pos_y") is not None else 16.0) / 100.0))
-        scale = w / 1080.0
-        size = max(18, int(round(float(txt_ov.get("font_size") or 52) * scale)))
-        pad = max(6, int(round(float(txt_ov.get("padding") or 16) * scale * 1.1)))
-        c = (txt_ov.get("text_color") or "#FFFFFF").lstrip("#")
-        bgr = f"{c[4:6]}{c[2:4]}{c[0:2]}".upper() if len(c) == 6 else "FFFFFF"
-        bc = (txt_ov.get("bg_color") or "#000000").lstrip("#")
-        bg_bgr = f"{bc[4:6]}{bc[2:4]}{bc[0:2]}".upper() if len(bc) == 6 else "000000"
-        bg_opacity = max(0.0, min(1.0, float(txt_ov.get("bg_opacity") if txt_ov.get("bg_opacity") is not None else 80.0) / 100.0))
-        bg_alpha = f"{int(round((1.0 - bg_opacity) * 255)):02X}"
-        font_name = txt_ov.get("font_family") or "Roboto-Bold"
-        if font_name not in ("Roboto-Bold", "Outfit", "Montserrat", "Bebas Neue", "Impact", "Open Sans"):
-            font_name = "Roboto-Bold"
-        x = int(round(px * w))
-        y = int(round(py * h))
-        ov_style = (
-            f"Style: FixedTextOverlay,{font_name},{size},&H00{bgr}&,&H00{bgr}&,&H{bg_alpha}{bg_bgr}&,&H{bg_alpha}{bg_bgr}&,"
-            f"-1,0,0,0,100,100,0,0,3,{pad},0,5,20,20,20,1"
-        )
-        extra_styles.append(ov_style)
-        extra.append(
-            f"Dialogue: 10,0:00:00.00,9:59:59.00,FixedTextOverlay,,0,0,0,,{{\\an5\\pos({x},{y})}}{txt}"
-        )
-
     # Template text fallback if drawtext unavailable
     tpl = opts.template
     if not _supports_drawtext() and tpl and tpl.get("preset") in ("twitter", "instagram", "news"):
@@ -305,35 +279,248 @@ def _signature_stages(in_label: str, sig: Optional[dict], w: int, h: int, work_d
     return [stage], "sig"
 
 
-def _text_overlay_stages(
-    in_label: str, text_overlay: Optional[dict], w: int, h: int, work_dir: Path
-) -> tuple[list[str], str]:
-    """Burn the fixed text overlay banner. Returns (stages, out_label).
+def _find_font_file(family: str) -> Path:
+    f_clean = (family or "").strip().lower()
+    mapping = {
+        "roboto": "Roboto-Bold.ttf",
+        "roboto-bold": "Roboto-Bold.ttf",
+        "roboto-regular": "Roboto-Regular.ttf",
+        "montserrat": "Montserrat.ttf",
+        "poppins": "Poppins-Bold.ttf",
+        "poppins-bold": "Poppins-Bold.ttf",
+        "bebas neue": "BebasNeue-Regular.ttf",
+        "bebasneue": "BebasNeue-Regular.ttf",
+        "anton": "Anton-Regular.ttf",
+        "bangers": "Bangers-Regular.ttf",
+        "luckiest guy": "LuckiestGuy-Regular.ttf",
+        "oswald": "Oswald.ttf",
+        "alfa slab one": "AlfaSlabOne-Regular.ttf",
+        "permanent marker": "PermanentMarker-Regular.ttf",
+        "archivo black": "ArchivoBlack-Regular.ttf",
+        "dm serif display": "DMSerifDisplay-Regular.ttf",
+        "teko": "Teko.ttf",
+        "changa": "Changa.ttf",
+        "russo one": "RussoOne-Regular.ttf",
+        "titan one": "TitanOne-Regular.ttf",
+        "paytone one": "PaytoneOne-Regular.ttf",
+        "lilita one": "LilitaOne-Regular.ttf",
+        "passion one": "PassionOne-Bold.ttf",
+        "sigmar one": "SigmarOne-Regular.ttf",
+        "bowlby one sc": "BowlbyOneSC-Regular.ttf",
+        "concert one": "ConcertOne-Regular.ttf",
+        "bungee": "Bungee-Regular.ttf",
+        "shrikhand": "Shrikhand-Regular.ttf",
+    }
+    fname = mapping.get(f_clean)
+    if fname and (FONTS_DIR / fname).exists():
+        return FONTS_DIR / fname
+    for candidate in FONTS_DIR.glob("*.ttf"):
+        if f_clean and f_clean in candidate.stem.lower():
+            return candidate
+    return FONTS_DIR / "Roboto-Bold.ttf"
 
-    pos_x/pos_y are the center as % of frame; size and padding scale relative
-    to 1080p. Uses drawtext with solid or semi-transparent background box.
-    """
-    if not _supports_drawtext() or not text_overlay or not text_overlay.get("enabled") or not (text_overlay.get("text") or "").strip():
-        return [], in_label
+
+def _find_emoji_font() -> tuple[Optional[ImageFont.FreeTypeFont], int]:
+    candidates = [
+        (Path("/System/Library/Fonts/Apple Color Emoji.ttc"), 64),
+        (Path("/System/Library/Fonts/Apple Color Emoji.ttf"), 64),
+        (FONTS_DIR / "NotoColorEmoji.ttf", 109),
+        (FONTS_DIR / "NotoEmoji.ttf", 64),
+    ]
+    for p, sz in candidates:
+        if p.exists():
+            try:
+                return ImageFont.truetype(str(p), sz), sz
+            except Exception:
+                continue
+    return None, 0
+
+
+def _is_emoji(char: str) -> bool:
+    cp = ord(char)
+    if cp in (0x200D, 0xFE0E, 0xFE0F):
+        return True
+    if 0x1F600 <= cp <= 0x1F64F: return True
+    if 0x1F300 <= cp <= 0x1F5FF: return True
+    if 0x1F680 <= cp <= 0x1F6FF: return True
+    if 0x1F700 <= cp <= 0x1FAFF: return True
+    if 0x2600 <= cp <= 0x27BF: return True
+    return unicodedata.category(char) in ("So", "Sk")
+
+
+def _split_text_and_emojis(text: str) -> list[tuple[str, bool]]:
+    runs: list[tuple[str, bool]] = []
+    cur_text = ""
+    cur_is_emoji: Optional[bool] = None
+    for ch in text:
+        e = _is_emoji(ch)
+        if cur_is_emoji is None:
+            cur_is_emoji = e
+            cur_text = ch
+        elif cur_is_emoji == e:
+            cur_text += ch
+        else:
+            runs.append((cur_text, cur_is_emoji))
+            cur_text = ch
+            cur_is_emoji = e
+    if cur_text:
+        runs.append((cur_text, cur_is_emoji))
+    return runs
+
+
+def _render_text_overlay_png(
+    text_overlay: dict, w: int, h: int, work_dir: Path
+) -> Optional[Path]:
+    text = (text_overlay.get("text") or "").strip()
+    if not text:
+        return None
 
     scale = w / 1080.0
-    size = max(18, int(round(float(text_overlay.get("font_size") or 52) * scale)))
-    pad = max(6, int(round(float(text_overlay.get("padding") or 16) * scale * 1.1)))
-    tcol = (text_overlay.get("text_color") or "#FFFFFF").replace("#", "0x")
-    bcol = (text_overlay.get("bg_color") or "#000000").replace("#", "0x")
-    alpha = max(0.0, min(1.0, float(text_overlay.get("bg_opacity") if text_overlay.get("bg_opacity") is not None else 80.0) / 100.0))
+    font_size = max(18, int(round(float(text_overlay.get("font_size") or 52) * scale)))
+    pad_h = max(8, int(round(float(text_overlay.get("padding") or 16) * scale * 1.3)))
+    pad_v = max(6, int(round(float(text_overlay.get("padding") or 16) * scale * 0.9)))
+    border_radius = max(0, int(round(float(text_overlay.get("border_radius") or 12) * scale)))
+
+    font_path = _find_font_file(text_overlay.get("font_family") or "Roboto")
+    try:
+        font = ImageFont.truetype(str(font_path), font_size)
+    except Exception:
+        font = ImageFont.load_default()
+
+    emoji_font, emoji_strike = _find_emoji_font()
+
+    lines = text.split("\n")
+    line_runs = [_split_text_and_emojis(ln) for ln in lines]
+
+    line_layouts = []
+    max_line_w = 0
+    line_h = int(round(font_size * 1.25))
+
+    for runs in line_runs:
+        layout_items = []
+        cur_w = 0
+        for run_text, is_em in runs:
+            if is_em and emoji_font:
+                for em in run_text:
+                    if ord(em) in (0xFE0E, 0xFE0F):
+                        continue
+                    item_w = int(round(font_size * 1.05))
+                    layout_items.append({"type": "emoji", "glyph": em, "w": item_w, "h": font_size, "x": cur_w})
+                    cur_w += item_w
+            else:
+                w_px = int(round(font.getlength(run_text)))
+                layout_items.append({"type": "text", "text": run_text, "w": w_px, "h": font_size, "x": cur_w})
+                cur_w += w_px
+        line_layouts.append((cur_w, layout_items))
+        if cur_w > max_line_w:
+            max_line_w = cur_w
+
+    banner_w = max_line_w + pad_h * 2
+    banner_h = len(lines) * line_h + pad_v * 2
+
+    # Constrain to 94% of frame width if excessive
+    max_allowed_w = int(round(w * 0.94))
+    if banner_w > max_allowed_w:
+        s_factor = max_allowed_w / banner_w
+        font_size = max(14, int(round(font_size * s_factor)))
+        pad_h = max(6, int(round(pad_h * s_factor)))
+        pad_v = max(4, int(round(pad_v * s_factor)))
+        try:
+            font = ImageFont.truetype(str(font_path), font_size)
+        except Exception:
+            pass
+        line_h = int(round(font_size * 1.25))
+        line_layouts = []
+        max_line_w = 0
+        for runs in line_runs:
+            layout_items = []
+            cur_w = 0
+            for run_text, is_em in runs:
+                if is_em and emoji_font:
+                    for em in run_text:
+                        if ord(em) in (0xFE0E, 0xFE0F):
+                            continue
+                        item_w = int(round(font_size * 1.05))
+                        layout_items.append({"type": "emoji", "glyph": em, "w": item_w, "h": font_size, "x": cur_w})
+                        cur_w += item_w
+                else:
+                    w_px = int(round(font.getlength(run_text)))
+                    layout_items.append({"type": "text", "text": run_text, "w": w_px, "h": font_size, "x": cur_w})
+                    cur_w += w_px
+            line_layouts.append((cur_w, layout_items))
+            if cur_w > max_line_w:
+                max_line_w = cur_w
+        banner_w = max_line_w + pad_h * 2
+        banner_h = len(lines) * line_h + pad_v * 2
+
+    im = Image.new("RGBA", (banner_w, banner_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(im)
+
+    bg_hex = (text_overlay.get("bg_color") or "#000000").lstrip("#")
+    if len(bg_hex) == 6:
+        bg_r, bg_g, bg_b = int(bg_hex[0:2], 16), int(bg_hex[2:4], 16), int(bg_hex[4:6], 16)
+    else:
+        bg_r, bg_g, bg_b = 0, 0, 0
+    bg_opacity = max(0.0, min(100.0, float(text_overlay.get("bg_opacity") if text_overlay.get("bg_opacity") is not None else 80.0)))
+    bg_a = int(round((bg_opacity / 100.0) * 255))
+
+    if bg_a > 0:
+        draw.rounded_rectangle([(0, 0), (banner_w - 1, banner_h - 1)], radius=border_radius, fill=(bg_r, bg_g, bg_b, bg_a))
+
+    txt_hex = (text_overlay.get("text_color") or "#FFFFFF").lstrip("#")
+    if len(txt_hex) == 6:
+        txt_r, txt_g, txt_b = int(txt_hex[0:2], 16), int(txt_hex[2:4], 16), int(txt_hex[4:6], 16)
+    else:
+        txt_r, txt_g, txt_b = 255, 255, 255
+
+    y_cursor = pad_v
+    for line_w, items in line_layouts:
+        x_start = pad_h + (max_line_w - line_w) // 2
+        for item in items:
+            ix = x_start + item["x"]
+            if item["type"] == "text":
+                draw.text((ix, y_cursor), item["text"], font=font, fill=(txt_r, txt_g, txt_b, 255))
+            elif item["type"] == "emoji" and emoji_font:
+                em_img = Image.new("RGBA", (emoji_strike, emoji_strike), (0, 0, 0, 0))
+                em_draw = ImageDraw.Draw(em_img)
+                em_draw.text((0, 0), item["glyph"], font=emoji_font, embedded_color=True)
+                target_sz = max(10, int(round(font_size * 0.95)))
+                em_resized = em_img.resize((target_sz, target_sz), Image.Resampling.LANCZOS)
+                y_off = (line_h - target_sz) // 2
+                im.paste(em_resized, (ix, y_cursor + y_off), em_resized)
+        y_cursor += line_h
+
+    out_png = work_dir / "text_overlay.png"
+    im.save(out_png)
+    return out_png
+
+
+def _text_overlay_stages(
+    in_label: str, text_overlay: Optional[dict], w: int, h: int, work_dir: Path, fit_mode: Optional[str] = None
+) -> tuple[list[str], str]:
+    """Burn the fixed text overlay banner using pixel-perfect PNG with emoji & font support."""
+    if not text_overlay or not text_overlay.get("enabled") or not (text_overlay.get("text") or "").strip():
+        return [], in_label
+
+    png_path = _render_text_overlay_png(text_overlay, w, h, work_dir)
+    if not png_path or not png_path.exists():
+        return [], in_label
+
     px = max(0.0, min(1.0, float(text_overlay.get("pos_x") if text_overlay.get("pos_x") is not None else 50.0) / 100.0))
     py = max(0.0, min(1.0, float(text_overlay.get("pos_y") if text_overlay.get("pos_y") is not None else 16.0) / 100.0))
-    txt = _escape_drawtext(text_overlay["text"].strip())
 
-    stage = (
-        f"[{in_label}]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:"
-        f"text='{txt}':fontcolor={tcol}:fontsize={size}:"
-        f"box=1:boxcolor={bcol}@{alpha:.3f}:boxborderw={pad}:"
-        f"x=(w*{px:.4f}-text_w/2):y=(h*{py:.4f}-text_h/2):"
-        f"shadowcolor=black@0.4:shadowx=1:shadowy=1[txtov]"
-    )
-    return [stage], "txtov"
+    if fit_mode == "square":
+        inner = max(0, w - 60)
+        band = max(0, (h - inner) // 2)
+        pos_y_px = int(round(band + py * inner))
+    else:
+        pos_y_px = int(round(h * py))
+    pos_x_px = int(round(w * px))
+
+    rel_png = _rel_for_filter(png_path, work_dir)
+    movie_stage = f"movie='{rel_png}'[ov_img]"
+    ov_stage = f"[{in_label}][ov_img]overlay=x={pos_x_px}-w/2:y={pos_y_px}-h/2[txtov]"
+    return [movie_stage, ov_stage], "txtov"
 
 
 def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir: Path) -> list[str]:
@@ -342,7 +529,7 @@ def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir:
     Returns the stages that take ``in_label`` -> cinematic effects -> text overlay -> signature -> ``[outv]``.
     """
     cine_stages, cap_in = effects.cinematic_stages(opts.cinematic, in_label, vw, vh)
-    txt_stages, txt_in = _text_overlay_stages(cap_in, opts.text_overlay, vw, vh, work_dir)
+    txt_stages, txt_in = _text_overlay_stages(cap_in, opts.text_overlay, vw, vh, work_dir, fit_mode=opts.fit)
     sig_stages, sig_in = _signature_stages(txt_in, opts.signature, vw, vh, work_dir)
     return cine_stages + txt_stages + sig_stages + [_caption_stage(sig_in, opts, work_dir)]
 
@@ -662,7 +849,7 @@ def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
             last = f"ttl{li}"
 
     # Fixed text overlay, signature/watermark, then captions, on the composited canvas.
-    txt_stages, last = _text_overlay_stages(last, opts.text_overlay, w, h, work_dir)
+    txt_stages, last = _text_overlay_stages(last, opts.text_overlay, w, h, work_dir, fit_mode="square")
     stages += txt_stages
     sig_stages, last = _signature_stages(last, opts.signature, w, h, work_dir)
     stages += sig_stages

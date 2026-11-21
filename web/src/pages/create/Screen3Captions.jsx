@@ -35,6 +35,102 @@ function SaveBlock({ s, open, setOpen }) {
   );
 }
 
+function CaptionPlacementBar({ studio }) {
+  const s = studio;
+  const px = s.cfg?.pos_x != null ? s.cfg.pos_x : 50;
+  const py = s.cfg?.pos_y != null ? s.cfg.pos_y : 88;
+
+  const isTop = Math.abs(px - 50) <= 2 && Math.abs(py - 14) <= 4;
+  const isCenter = Math.abs(px - 50) <= 2 && Math.abs(py - 50) <= 4;
+  const isBottom = Math.abs(px - 50) <= 2 && Math.abs(py - 88) <= 4;
+
+  const setPos = (x, y) => {
+    s.setOverride("pos_x", x);
+    s.setOverride("pos_y", y);
+  };
+
+  return (
+    <div className="caption-pos-card">
+      <div className="caption-pos-header">
+        <div className="caption-pos-title">
+          <span className="caption-pos-icon">📍</span>
+          <span>Caption Placement</span>
+        </div>
+        <span className="caption-pos-coords">X: {px}% · Y: {py}%</span>
+      </div>
+
+      {/* Quick Placement Buttons */}
+      <div className="caption-pos-btn-group">
+        <button
+          type="button"
+          className={"caption-pos-btn" + (isTop ? " active" : "")}
+          onClick={() => setPos(50, 14)}
+          title="Place captions near the top (14%)"
+        >
+          <span className="pos-btn-icon">⬆️</span>
+          <span>Top</span>
+          <span className="pos-btn-badge">14%</span>
+        </button>
+        <button
+          type="button"
+          className={"caption-pos-btn" + (isCenter ? " active" : "")}
+          onClick={() => setPos(50, 50)}
+          title="Place captions in the center (50%)"
+        >
+          <span className="pos-btn-icon">⏺️</span>
+          <span>Center</span>
+          <span className="pos-btn-badge">50%</span>
+        </button>
+        <button
+          type="button"
+          className={"caption-pos-btn" + (isBottom ? " active" : "")}
+          onClick={() => setPos(50, 88)}
+          title="Place captions near the bottom (88%)"
+        >
+          <span className="pos-btn-icon">⬇️</span>
+          <span>Bottom</span>
+          <span className="pos-btn-badge">88%</span>
+        </button>
+      </div>
+
+      {/* Sliders for precise manual tuning */}
+      <div className="caption-pos-sliders">
+        <div className="caption-pos-slider-row">
+          <label className="caption-slider-lbl">
+            <span>Vertical (Y)</span>
+            <span className="slider-val">{py}%</span>
+          </label>
+          <input
+            type="range"
+            min="6"
+            max="94"
+            value={py}
+            onChange={(e) => s.setOverride("pos_y", Number(e.target.value))}
+            className="range"
+          />
+        </div>
+        <div className="caption-pos-slider-row">
+          <label className="caption-slider-lbl">
+            <span>Horizontal (X)</span>
+            <span className="slider-val">{px}%</span>
+          </label>
+          <input
+            type="range"
+            min="10"
+            max="90"
+            value={px}
+            onChange={(e) => s.setOverride("pos_x", Number(e.target.value))}
+            className="range"
+          />
+        </div>
+      </div>
+      <div className="caption-pos-hint">
+        💡 Tip: You can also drag the caption directly on the phone preview.
+      </div>
+    </div>
+  );
+}
+
 // Screen 3 — Transcription & Caption Styles. Transcription already started in
 // the background the moment Screen 2 was entered (usePrep); this screen just
 // surfaces its progress alongside the full style picker (built-in themes,
@@ -62,6 +158,8 @@ export default function Screen3Captions({
             <button className={"studio-tab" + (tab === "presets" ? " active" : "")} onClick={() => setTab("presets")}><Icons.download /><span className="studio-tab-lbl">My presets</span></button>
             <button className={"studio-tab" + (tab === "transcript" ? " active" : "")} onClick={() => setTab("transcript")}><Icons.bolt /><span className="studio-tab-lbl">Transcript</span></button>
           </div>
+
+          {tab !== "transcript" && <CaptionPlacementBar studio={s} />}
 
           {tab === "themes" && (
             <div className="studio-pane">

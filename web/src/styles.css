@@ -1919,3 +1919,103 @@ select optgroup { font-weight: 700; }
   border: 1px solid var(--line-2) !important;
 }
 
+/* ---------- Caption Placement Controls ---------- */
+.caption-pos-card {
+  margin: 12px 16px 14px;
+  padding: 12px 14px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius, 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.caption-pos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.caption-pos-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text, #fff);
+}
+.caption-pos-icon {
+  font-size: 14px;
+}
+.caption-pos-coords {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  color: var(--accent-hi, #818cf8);
+  background: var(--accent-soft, rgba(129, 140, 248, 0.12));
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.caption-pos-btn-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.caption-pos-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: var(--surface, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  color: var(--text-2, rgba(255, 255, 255, 0.8));
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.caption-pos-btn:hover {
+  background: var(--accent-soft, rgba(129, 140, 248, 0.15));
+  border-color: var(--accent, #6366f1);
+  color: #fff;
+}
+.caption-pos-btn.active {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent-hi, #818cf8);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.35);
+}
+.pos-btn-badge {
+  font-size: 10px;
+  opacity: 0.75;
+  font-family: var(--mono, monospace);
+}
+.caption-pos-sliders {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.caption-pos-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.caption-slider-lbl {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted, rgba(255, 255, 255, 0.6));
+}
+.caption-slider-lbl .slider-val {
+  color: var(--accent-hi, #818cf8);
+  font-family: var(--mono, monospace);
+}
+.caption-pos-hint {
+  font-size: 11px;
+  color: var(--muted-2, rgba(255, 255, 255, 0.4));
+  font-style: italic;
+  margin-top: -2px;
+}
+
