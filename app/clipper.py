@@ -182,6 +182,7 @@ def _inject_extra_ass(opts: ClipOptions, w: int, h: int) -> None:
     if not opts.ass_path or not opts.ass_path.is_file():
         return
     extra: list[str] = []
+    extra_styles: list[str] = []
 
     # Signature / watermark fallback if drawtext unavailable
     sig = opts.signature
@@ -204,20 +205,30 @@ def _inject_extra_ass(opts: ClipOptions, w: int, h: int) -> None:
     # Fixed text overlay fallback if drawtext unavailable
     txt_ov = opts.text_overlay
     if not _supports_drawtext() and txt_ov and txt_ov.get("enabled") and (txt_ov.get("text") or "").strip():
-        txt = txt_ov["text"].strip().replace("\\", "").replace("\n", " ")
+        txt = txt_ov["text"].strip().replace("\\", "").replace("\n", "\\N")
         px = max(0.0, min(1.0, float(txt_ov.get("pos_x") if txt_ov.get("pos_x") is not None else 50.0) / 100.0))
         py = max(0.0, min(1.0, float(txt_ov.get("pos_y") if txt_ov.get("pos_y") is not None else 16.0) / 100.0))
         scale = w / 1080.0
-        size = max(16, int(round(float(txt_ov.get("font_size") or 54) * scale * 1.35)))
-        pad = max(4, int(round(float(txt_ov.get("padding") or 16) * scale * 1.35)))
+        size = max(18, int(round(float(txt_ov.get("font_size") or 52) * scale)))
+        pad = max(6, int(round(float(txt_ov.get("padding") or 16) * scale * 1.1)))
         c = (txt_ov.get("text_color") or "#FFFFFF").lstrip("#")
         bgr = f"{c[4:6]}{c[2:4]}{c[0:2]}".upper() if len(c) == 6 else "FFFFFF"
         bc = (txt_ov.get("bg_color") or "#000000").lstrip("#")
         bg_bgr = f"{bc[4:6]}{bc[2:4]}{bc[0:2]}".upper() if len(bc) == 6 else "000000"
+        bg_opacity = max(0.0, min(1.0, float(txt_ov.get("bg_opacity") if txt_ov.get("bg_opacity") is not None else 80.0) / 100.0))
+        bg_alpha = f"{int(round((1.0 - bg_opacity) * 255)):02X}"
+        font_name = txt_ov.get("font_family") or "Roboto-Bold"
+        if font_name not in ("Roboto-Bold", "Outfit", "Montserrat", "Bebas Neue", "Impact", "Open Sans"):
+            font_name = "Roboto-Bold"
         x = int(round(px * w))
         y = int(round(py * h))
+        ov_style = (
+            f"Style: FixedTextOverlay,{font_name},{size},&H00{bgr}&,&H00{bgr}&,&H{bg_alpha}{bg_bgr}&,&H{bg_alpha}{bg_bgr}&,"
+            f"-1,0,0,0,100,100,0,0,3,{pad},0,5,20,20,20,1"
+        )
+        extra_styles.append(ov_style)
         extra.append(
-            f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an5\\pos({x},{y})\\fs{size}\\c&H{bgr}&\\bord{pad}\\3c&H{bg_bgr}&}}{txt}"
+            f"Dialogue: 10,0:00:00.00,9:59:59.00,FixedTextOverlay,,0,0,0,,{{\\an5\\pos({x},{y})}}{txt}"
         )
 
     # Template text fallback if drawtext unavailable
@@ -255,12 +266,16 @@ def _inject_extra_ass(opts: ClipOptions, w: int, h: int) -> None:
                 f"Dialogue: 10,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an8\\pos({w // 2},{y})\\fs{font_size}\\c&H{bgr}&\\bord3\\3c&H000000&}}{clean_ln}"
             )
 
-    if extra:
+    if extra or extra_styles:
         try:
             content = opts.ass_path.read_text(encoding="utf-8")
-            if not content.endswith("\n"):
-                content += "\n"
-            content += "\n".join(extra) + "\n"
+            if extra_styles and "[Events]" in content:
+                parts = content.split("[Events]", 1)
+                content = parts[0] + "\n".join(extra_styles) + "\n\n[Events]" + parts[1]
+            if extra:
+                if not content.endswith("\n"):
+                    content += "\n"
+                content += "\n".join(extra) + "\n"
             opts.ass_path.write_text(content, encoding="utf-8")
         except OSError as exc:
             logger.warning("Could not append fallback overlays to ASS: %s", exc)
@@ -302,11 +317,11 @@ def _text_overlay_stages(
         return [], in_label
 
     scale = w / 1080.0
-    size = max(16, int(round(float(text_overlay.get("font_size") or 54) * scale * 1.35)))
-    pad = max(4, int(round(float(text_overlay.get("padding") or 16) * scale * 1.35)))
+    size = max(18, int(round(float(text_overlay.get("font_size") or 52) * scale)))
+    pad = max(6, int(round(float(text_overlay.get("padding") or 16) * scale * 1.1)))
     tcol = (text_overlay.get("text_color") or "#FFFFFF").replace("#", "0x")
     bcol = (text_overlay.get("bg_color") or "#000000").replace("#", "0x")
-    alpha = max(0.0, min(1.0, float(text_overlay.get("bg_opacity") if text_overlay.get("bg_opacity") is not None else 75.0) / 100.0))
+    alpha = max(0.0, min(1.0, float(text_overlay.get("bg_opacity") if text_overlay.get("bg_opacity") is not None else 80.0) / 100.0))
     px = max(0.0, min(1.0, float(text_overlay.get("pos_x") if text_overlay.get("pos_x") is not None else 50.0) / 100.0))
     py = max(0.0, min(1.0, float(text_overlay.get("pos_y") if text_overlay.get("pos_y") is not None else 16.0) / 100.0))
     txt = _escape_drawtext(text_overlay["text"].strip())
@@ -315,7 +330,7 @@ def _text_overlay_stages(
         f"[{in_label}]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:"
         f"text='{txt}':fontcolor={tcol}:fontsize={size}:"
         f"box=1:boxcolor={bcol}@{alpha:.3f}:boxborderw={pad}:"
-        f"x=(w-text_w)*{px:.4f}:y=(h-text_h)*{py:.4f}:"
+        f"x=(w*{px:.4f}-text_w/2):y=(h*{py:.4f}-text_h/2):"
         f"shadowcolor=black@0.4:shadowx=1:shadowy=1[txtov]"
     )
     return [stage], "txtov"

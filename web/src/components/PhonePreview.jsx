@@ -389,13 +389,21 @@ export default function PhonePreview({
     if (e.target.closest(".text-ov-resize-handle")) return;
     e.preventDefault(); e.stopPropagation();
     setTextDragActive(true);
+    const startX = e.clientX || (e.touches && e.touches[0].clientX);
+    const startY = e.clientY || (e.touches && e.touches[0].clientY);
     const r = screenRef.current.getBoundingClientRect();
+    const videoPixelW = r.width;
+    const videoPixelH = Math.max(1, r.height * (reg.height / 100));
+    const initX = textOverlay.pos_x != null ? textOverlay.pos_x : 50;
+    const initY = textOverlay.pos_y != null ? textOverlay.pos_y : 16;
+
     const onMove = (ev) => {
-      const p = ev.touches ? ev.touches[0] : ev;
-      let px = ((p.clientX - r.left) / r.width) * 100;
-      let py = (((p.clientY - r.top) / r.height) * 100 - reg.top) / reg.height * 100;
-      px = Math.max(5, Math.min(95, Math.round(px)));
-      py = Math.max(5, Math.min(95, Math.round(py)));
+      const cx = ev.clientX || (ev.touches && ev.touches[0].clientX);
+      const cy = ev.clientY || (ev.touches && ev.touches[0].clientY);
+      const dxPct = ((cx - startX) / videoPixelW) * 100;
+      const dyPct = ((cy - startY) / videoPixelH) * 100;
+      let px = Math.max(5, Math.min(95, Math.round((initX + dxPct) * 10) / 10));
+      let py = Math.max(4, Math.min(96, Math.round((initY + dyPct) * 10) / 10));
       setTextOverlay((prev) => ({ ...prev, pos_x: px, pos_y: py }));
     };
     const onUp = () => {
@@ -417,14 +425,22 @@ export default function PhonePreview({
     setTextDragActive(true);
     const startX = e.clientX || (e.touches && e.touches[0].clientX);
     const startY = e.clientY || (e.touches && e.touches[0].clientY);
-    const origSize = textOverlay.font_size || 54;
+    const el = e.target.closest(".preview-fixed-text-overlay");
+    if (!el) return;
+    const box = el.getBoundingClientRect();
+    const centerX = box.left + box.width / 2;
+    const centerY = box.top + box.height / 2;
+    const startDist = Math.max(20, Math.hypot(startX - centerX, startY - centerY));
+    const origSize = textOverlay.font_size || 52;
     const origPad = textOverlay.padding || 16;
+
     const onMove = (ev) => {
       const cx = ev.clientX || (ev.touches && ev.touches[0].clientX);
       const cy = ev.clientY || (ev.touches && ev.touches[0].clientY);
-      const delta = ((cx - startX) + (cy - startY)) * 0.45;
-      const newSize = Math.max(18, Math.min(140, Math.round(origSize + delta)));
-      const newPad = Math.max(6, Math.min(48, Math.round(origPad + delta * 0.25)));
+      const curDist = Math.hypot(cx - centerX, cy - centerY);
+      const scaleRatio = startDist > 0 ? curDist / startDist : 1;
+      const newSize = Math.max(18, Math.min(140, Math.round(origSize * scaleRatio)));
+      const newPad = Math.max(4, Math.min(48, Math.round(origPad * scaleRatio)));
       setTextOverlay((prev) => ({ ...prev, font_size: newSize, padding: newPad }));
     };
     const onUp = () => {
@@ -646,16 +662,17 @@ export default function PhonePreview({
 
         {/* Fixed Text Overlay with Live Drag & Resize */}
         {textOverlay && textOverlay.enabled && (textOverlay.text || "").trim() && (() => {
-          const ovScale = (screenW / 1080) * 1.35;
-          const fontSize = Math.max(12, Math.round((textOverlay.font_size || 54) * ovScale));
-          const paddingH = Math.max(6, Math.round((textOverlay.padding || 16) * ovScale * 1.2));
-          const paddingV = Math.max(4, Math.round((textOverlay.padding || 16) * ovScale * 0.8));
+          const ovScale = (screenW || 296) / 1080;
+          const fontSize = Math.max(11, Math.round((textOverlay.font_size || 52) * ovScale));
+          const paddingH = Math.max(6, Math.round((textOverlay.padding || 16) * ovScale * 1.3));
+          const paddingV = Math.max(4, Math.round((textOverlay.padding || 16) * ovScale * 0.9));
+          const topPct = reg.top + ((textOverlay.pos_y != null ? textOverlay.pos_y : 16) / 100) * reg.height;
           return (
             <div
               className={`preview-fixed-text-overlay ${textDragActive ? "is-dragging" : ""}`}
               style={{
-                left: `${textOverlay.pos_x ?? 50}%`,
-                top: `${textOverlay.pos_y ?? 16}%`,
+                left: `${textOverlay.pos_x != null ? textOverlay.pos_x : 50}%`,
+                top: `${topPct}%`,
                 transform: "translate(-50%, -50%)",
                 fontFamily: textOverlay.font_family || "Roboto-Bold",
                 fontSize: `${fontSize}px`,
@@ -671,14 +688,26 @@ export default function PhonePreview({
             >
               {textOverlay.text}
               <div
-                className="text-ov-resize-handle br"
-                title="Drag to scale font size"
+                className="text-ov-resize-handle tl"
+                title="Drag to resize text"
+                onMouseDown={startTextResize}
+                onTouchStart={startTextResize}
+              />
+              <div
+                className="text-ov-resize-handle tr"
+                title="Drag to resize text"
                 onMouseDown={startTextResize}
                 onTouchStart={startTextResize}
               />
               <div
                 className="text-ov-resize-handle bl"
-                title="Drag to scale font size"
+                title="Drag to resize text"
+                onMouseDown={startTextResize}
+                onTouchStart={startTextResize}
+              />
+              <div
+                className="text-ov-resize-handle br"
+                title="Drag to resize text"
                 onMouseDown={startTextResize}
                 onTouchStart={startTextResize}
               />

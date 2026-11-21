@@ -21,11 +21,11 @@ export default function TextOverlayEditor({ textOverlay, setTextOverlay }) {
     enabled: false,
     text: "WATCH TILL THE END 😱",
     font_family: "Roboto-Bold",
-    font_size: 34,
+    font_size: 52,
     text_color: "#FFFFFF",
     bg_color: "#000000",
     bg_opacity: 80,
-    padding: 14,
+    padding: 16,
     border_radius: 12,
     alignment: "center",
     pos_x: 50,
@@ -84,12 +84,12 @@ export default function TextOverlayEditor({ textOverlay, setTextOverlay }) {
             </div>
 
             <div style={{ width: 140 }}>
-              <label className="fieldlabel">Size: {current.font_size}px</label>
+              <label className="fieldlabel">Size: {current.font_size || 52}px</label>
               <input
                 type="range"
                 min="18"
                 max="140"
-                value={current.font_size}
+                value={current.font_size || 52}
                 onChange={(e) => update("font_size", +e.target.value)}
                 className="range"
               />
