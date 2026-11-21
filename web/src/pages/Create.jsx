@@ -383,7 +383,9 @@ export default function Create({ step, setStep }) {
           studio={studio} language={language} onFontUpload={onFontUpload}
           media={media} prepView={prepView} sourceReady={sourceReady}
           transcript={transcript} curTime={curTime} seekTo={seekTo} videoRef={videoRef} duration={vidDuration}
-          aspect={aspect} fit={fit} barText={barText} signature={signature} setSig={setSig}
+          aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+          signature={signature} setSig={setSig}
+          framing={framing} textOverlay={textOverlay} templateConfig={templateConfig}
           onBack={() => setStep(2)} onNext={() => setStep(4)}
         />
       )}
@@ -391,7 +393,9 @@ export default function Create({ step, setStep }) {
       {step === 4 && (
         <Screen4Effects
           studio={studio} language={language} media={media} sourceReady={sourceReady}
-          aspect={aspect} fit={fit} barText={barText} signature={signature} setSig={setSig} videoRef={videoRef}
+          aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+          signature={signature} setSig={setSig} videoRef={videoRef}
+          framing={framing} textOverlay={textOverlay} templateConfig={templateConfig}
           onBack={() => setStep(3)} onNext={() => setStep(5)}
         />
       )}
@@ -403,7 +407,9 @@ export default function Create({ step, setStep }) {
           onTrack={(t) => { setMusicTrack(t); setMusicStart(0); }} onVolume={setMusicVolume} onDuck={setMusicDuck} onStart={setMusicStart}
           onMusicUpload={onMusicUpload} onRefreshMusic={refreshMusic}
           studio={studio} language={language} media={media} sourceReady={sourceReady}
-          aspect={aspect} fit={fit} barText={barText} signature={signature} setSig={setSig} videoRef={videoRef}
+          aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+          signature={signature} setSig={setSig} videoRef={videoRef}
+          framing={framing} textOverlay={textOverlay} templateConfig={templateConfig}
           onBack={() => setStep(4)} onNext={() => setStep(6)}
         />
       )}

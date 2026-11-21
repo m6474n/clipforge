@@ -7,7 +7,8 @@ import PhonePreview from "../../components/PhonePreview.jsx";
 // "extra visual enhancement" controls live here, away from the core caption
 // styling on Screen 3.
 export default function Screen4Effects({
-  studio, language, media, sourceReady, aspect, fit, barText, signature, setSig, videoRef,
+  studio, language, media, sourceReady, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig, videoRef,
+  framing, textOverlay, templateConfig,
   onBack, onNext,
 }) {
   return (
@@ -27,8 +28,10 @@ export default function Screen4Effects({
         <div className="w3-right">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
             preparing={!media && sourceReady} aspect={aspect} fit={fit} barText={barText}
+            barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
-            overrides={studio.overrides} setOverride={studio.setOverride} />
+            overrides={studio.overrides} setOverride={studio.setOverride}
+            framing={framing} textOverlay={textOverlay} templateConfig={templateConfig} />
         </div>
       </div>
 

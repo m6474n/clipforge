@@ -66,7 +66,7 @@ function getEmbedSrc(src, muted = true) {
   return src;
 }
 
-function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, loop = true, isMaster = false }) {
+function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, loop = true, isMaster = false, isSolo = false }) {
   const containerRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [videoAR, setVideoAR] = useState(16 / 9);
@@ -128,7 +128,7 @@ function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, lo
 
   // Fallback dimensions if container not yet measured
   const cellW = size.w || 224;
-  const cellH = size.h || 199;
+  const cellH = size.h || (isSolo ? 398 : 199);
 
   const f = frame || { x: 0, y: 0, width: 100, height: 100 };
   const fx = Math.max(0, Math.min(100, f.x || 0)) / 100;
@@ -373,6 +373,7 @@ export default function PhonePreview({
                 frame={framesList[0]}
                 videoRef={videoRef}
                 isMaster={true}
+                isSolo={true}
               />
             )
           ) : (

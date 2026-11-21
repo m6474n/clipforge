@@ -6,7 +6,8 @@ import PhonePreview from "../../components/PhonePreview.jsx";
 export default function Screen5Music({
   tracks, musicTrack, musicVolume, musicDuck, musicStart, musicSuggest,
   onTrack, onVolume, onDuck, onStart, onMusicUpload, onRefreshMusic,
-  studio, language, media, sourceReady, aspect, fit, barText, signature, setSig, videoRef,
+  studio, language, media, sourceReady, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig, videoRef,
+  framing, textOverlay, templateConfig,
   onBack, onNext,
 }) {
   return (
@@ -21,8 +22,10 @@ export default function Screen5Music({
         <div className="w3-right">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
             preparing={!media && sourceReady} aspect={aspect} fit={fit} barText={barText}
+            barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
-            overrides={studio.overrides} setOverride={studio.setOverride} />
+            overrides={studio.overrides} setOverride={studio.setOverride}
+            framing={framing} textOverlay={textOverlay} templateConfig={templateConfig} />
         </div>
       </div>
 
