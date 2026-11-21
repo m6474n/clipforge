@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, transcriber, uploads
+from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, templates, transcriber, uploads
 from .clipper import ClipOptions, generate_clip
 from .models import ClipGenerationError, Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
 from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, WEB_DIST_DIR, ensure_dirs
@@ -155,6 +155,27 @@ def update_app_config(req: ConfigUpdateRequest) -> dict:
         "model_size": transcriber.get_saved_model(),
         "auto_transcribe": transcriber.get_auto_transcribe(),
     }
+
+
+@app.get("/api/templates")
+def get_templates() -> list:
+    """Return all project templates."""
+    return templates.list_templates()
+
+
+@app.post("/api/templates")
+def save_project_template(template: dict) -> dict:
+    """Save or update a project preset template."""
+    return templates.save_template(template)
+
+
+@app.delete("/api/templates/{template_id}")
+def delete_project_template(template_id: str) -> dict:
+    """Delete a user project preset template."""
+    ok = templates.delete_template(template_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Template not found or cannot be deleted")
+    return {"status": "ok", "deleted": template_id}
 
 
 @app.get("/api/system-and-models")

@@ -4,6 +4,8 @@ import PhonePreview from "../../components/PhonePreview.jsx";
 import FramingEditor from "../../components/FramingEditor.jsx";
 import TextOverlayEditor from "../../components/TextOverlayEditor.jsx";
 import TemplateEditor from "../../components/TemplateEditor.jsx";
+import SavedTemplatesManager from "../../components/SavedTemplatesManager.jsx";
+import TemplatePickerBar from "../../components/TemplatePickerBar.jsx";
 
 const ASPECTS = [
   ["9:16", "9:16 Vertical (Shorts/Reels)"],
@@ -12,9 +14,10 @@ const ASPECTS = [
 ];
 
 const TABS = [
+  { id: "saved_templates", label: "⭐ Presets" },
   { id: "framing", label: "📐 Framing" },
   { id: "text", label: "✍️ Text Overlay" },
-  { id: "templates", label: "🎨 Templates" },
+  { id: "templates", label: "🎨 Social Cards" },
   { id: "strategy", label: "⏱️ Clips & Strategy" },
 ];
 
@@ -32,6 +35,7 @@ export default function Screen2Settings({
   numClips, setNumClips, clipLen, setClipLen, duration,
   framing, setFraming, textOverlay, setTextOverlay, templateConfig, setTemplateConfig,
   studio, aspect, fit, signature, setSig, videoRef,
+  templates, activeTemplateId, onApplyTemplate, onSaveTemplate, onDeleteTemplate,
   onBack, onNext, nextEnabled,
 }) {
   const [activeTab, setActiveTab] = useState("framing");
@@ -53,6 +57,16 @@ export default function Screen2Settings({
             </div>
           </div>
 
+          {/* Quick Template Strip */}
+          <div style={{ padding: "0 16px 12px" }}>
+            <TemplatePickerBar
+              templates={templates}
+              activeTemplateId={activeTemplateId}
+              onApplyTemplate={onApplyTemplate}
+              onOpenSave={() => setActiveTab("saved_templates")}
+            />
+          </div>
+
           {/* Sub-Tabs Navigation */}
           <div className="screen2-subtabs">
             {TABS.map((t) => (
@@ -66,6 +80,27 @@ export default function Screen2Settings({
               </button>
             ))}
           </div>
+
+          {/* TAB 0: Saved Templates */}
+          {activeTab === "saved_templates" && (
+            <div className="tab-pane-content">
+              <SavedTemplatesManager
+                templates={templates}
+                activeTemplateId={activeTemplateId}
+                onApplyTemplate={onApplyTemplate}
+                onSaveTemplate={onSaveTemplate}
+                onDeleteTemplate={onDeleteTemplate}
+                currentSummary={{
+                  framingMode: framing?.mode,
+                  splitPct: framing?.split_pct,
+                  captionPreset: studio.activeKey,
+                  captionPos: `${studio.cfg?.pos_x ?? 50}% / ${studio.cfg?.pos_y ?? 88}%`,
+                  hasOverlay: textOverlay?.enabled,
+                  aspect: outputAspect,
+                }}
+              />
+            </div>
+          )}
 
           {/* TAB 1: Framing */}
           {activeTab === "framing" && (

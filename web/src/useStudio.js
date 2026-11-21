@@ -42,6 +42,11 @@ export function useStudio(presets, fonts, language) {
     setOverrides(applyLangFont(language, {}));
     setActiveKey(styleId);
   }
+  function loadCaptionConfig(id, ov, cine) {
+    if (id) { setStyleId(id); setActiveKey(id); }
+    if (ov) setOverrides(JSON.parse(JSON.stringify(ov)));
+    if (cine) setCinematic(JSON.parse(JSON.stringify(cine)));
+  }
   function saveCurrentPreset(name) {
     const label = (name || "").trim();
     if (!label) return false;
@@ -69,6 +74,7 @@ export function useStudio(presets, fonts, language) {
     styleId, activeKey, overrides, userPresets, galleryFilter, cinematic,
     setGalleryFilter, setOverride, resetOverrides,
     selectPreset, selectUserPreset, saveCurrentPreset, removeUserPreset, onLanguageChange,
+    loadCaptionConfig,
     setCine, resetCine,
   };
 }

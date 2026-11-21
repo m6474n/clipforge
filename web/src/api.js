@@ -35,6 +35,12 @@ export const api = {
   result: (jobId) => jget(`/api/result/${jobId}`),
   getConfig: () => jget("/api/config"),
   updateConfig: (data) => jpost("/api/config", data),
+  templates: () => jget("/api/templates"),
+  saveTemplate: (data) => jpost("/api/templates", data),
+  deleteTemplate: async (id) => {
+    const r = await fetch(`/api/templates/${id}`, { method: "DELETE" });
+    return r.ok;
+  },
   prefetch: (video_url) => jpost("/api/prefetch", { video_url }),
   prefetchStatus: (id) => jget(`/api/prefetch/${id}`),
   pretranscribe: (source_id, device, language) => jpost("/api/pretranscribe", { source_id, device, language }),

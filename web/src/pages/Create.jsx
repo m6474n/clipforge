@@ -125,6 +125,28 @@ export default function Create({ step, setStep }) {
     return localStorage.getItem("cf_auto_transcribe") !== "false";
   });
 
+  // Project Layout Templates
+  const [templates, setTemplates] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("cf_saved_templates")) || [];
+    } catch {
+      return [];
+    }
+  });
+  const [activeTemplateId, setActiveTemplateId] = useState(() => {
+    return localStorage.getItem("cf_active_template_id") || "tpl_duo_split";
+  });
+  const [activeTemplateName, setActiveTemplateName] = useState("");
+
+  useEffect(() => {
+    api.templates().then((tpls) => {
+      if (tpls && tpls.length) {
+        setTemplates(tpls);
+        try { localStorage.setItem("cf_saved_templates", JSON.stringify(tpls)); } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     api.getConfig().then((cfg) => {
       if (cfg && cfg.auto_transcribe !== undefined) {
@@ -136,6 +158,90 @@ export default function Create({ step, setStep }) {
 
   const studio = useStudio(presets, fonts, language);
   const prep = usePrep(device, language, autoTranscribe);
+
+  const applyTemplate = (tpl) => {
+    if (!tpl) return;
+    setActiveTemplateId(tpl.id);
+    setActiveTemplateName(tpl.name);
+    try { localStorage.setItem("cf_active_template_id", tpl.id); } catch {}
+
+    if (tpl.framing) {
+      setFraming(JSON.parse(JSON.stringify(tpl.framing)));
+    }
+    if (tpl.caption) {
+      const ov = { ...(tpl.caption.overrides || {}) };
+      if (tpl.caption.pos_x != null) ov.pos_x = tpl.caption.pos_x;
+      if (tpl.caption.pos_y != null) ov.pos_y = tpl.caption.pos_y;
+      studio.loadCaptionConfig(tpl.caption.preset || "alex_caps", ov, tpl.cinematic);
+    }
+    if (tpl.text_overlay) {
+      setTextOverlay(JSON.parse(JSON.stringify(tpl.text_overlay)));
+    }
+    if (tpl.template_config) {
+      setTemplateConfig(JSON.parse(JSON.stringify(tpl.template_config)));
+    }
+    if (tpl.output) {
+      if (tpl.output.aspect) setAspect(tpl.output.aspect);
+      if (tpl.output.fit) setFit(tpl.output.fit);
+      if (tpl.output.square_corners) setSquareCorners(tpl.output.square_corners);
+      if (tpl.output.bar_text !== undefined) setBarText(tpl.output.bar_text);
+      if (tpl.output.bar_text_color) setBarTextColor(tpl.output.bar_text_color);
+      if (tpl.output.bar_text_anim) setBarTextAnim(tpl.output.bar_text_anim);
+    }
+    if (tpl.signature) {
+      setSignature(JSON.parse(JSON.stringify(tpl.signature)));
+    }
+  };
+
+  const saveNewTemplate = async (name, desc) => {
+    const tpl = {
+      id: "tpl_" + Date.now().toString(36),
+      name: name.trim(),
+      description: (desc || "").trim(),
+      is_default: false,
+      framing: JSON.parse(JSON.stringify(framing)),
+      caption: {
+        preset: studio.activeKey || studio.styleId || "alex_caps",
+        pos_x: studio.cfg?.pos_x ?? 50,
+        pos_y: studio.cfg?.pos_y ?? 88,
+        overrides: JSON.parse(JSON.stringify(studio.overrides || {})),
+      },
+      text_overlay: JSON.parse(JSON.stringify(textOverlay)),
+      template_config: JSON.parse(JSON.stringify(templateConfig)),
+      output: {
+        aspect,
+        fit,
+        square_corners: squareCorners,
+        bar_text: barText,
+        bar_text_color: barTextColor,
+        bar_text_anim: barTextAnim,
+      },
+      signature: JSON.parse(JSON.stringify(signature)),
+      cinematic: JSON.parse(JSON.stringify(studio.cinematic)),
+    };
+    const saved = await api.saveTemplate(tpl);
+    setTemplates((prev) => {
+      const next = [...prev.filter((t) => t.id !== saved.id), saved];
+      try { localStorage.setItem("cf_saved_templates", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setActiveTemplateId(saved.id);
+    setActiveTemplateName(saved.name);
+    return saved;
+  };
+
+  const deleteTemplate = async (id) => {
+    await api.deleteTemplate(id);
+    setTemplates((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      try { localStorage.setItem("cf_saved_templates", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    if (activeTemplateId === id) {
+      setActiveTemplateId(null);
+      setActiveTemplateName(null);
+    }
+  };
 
   function startPrep() {
     if (source === "url" && url.trim()) prep.startUrl(url.trim());
@@ -371,6 +477,7 @@ export default function Create({ step, setStep }) {
           source={source} setSource={setSource} url={url} setUrl={setUrl}
           upload={upload} upPct={upPct} drag={drag} setDrag={setDrag} fileRef={fileRef}
           doUpload={doUpload} onClear={() => doUpload(null)} sourceReady={sourceReady} error={error}
+          templates={templates} activeTemplateId={activeTemplateId} onApplyTemplate={applyTemplate}
           onContinue={() => { startPrep(); setStep(2); }}
         />
       )}
@@ -390,6 +497,8 @@ export default function Create({ step, setStep }) {
           textOverlay={textOverlay} setTextOverlay={setTextOverlay}
           templateConfig={templateConfig} setTemplateConfig={setTemplateConfig}
           studio={studio} fonts={fonts} aspect={aspect} fit={fit} signature={signature} setSig={setSig} videoRef={videoRef}
+          templates={templates} activeTemplateId={activeTemplateId}
+          onApplyTemplate={applyTemplate} onSaveTemplate={saveNewTemplate} onDeleteTemplate={deleteTemplate}
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}
           nextEnabled={!["downloading", "idle"].includes(prepView.phase)}

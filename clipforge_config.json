@@ -1,3 +1,4 @@
 {
-  "model_size": "large-v3-turbo"
+  "model_size": "large-v3-turbo",
+  "auto_transcribe": false
 }

@@ -1,4 +1,5 @@
 import { Icons } from "../../components/Icons.jsx";
+import TemplatePickerBar from "../../components/TemplatePickerBar.jsx";
 
 // Social handles shown on the landing — brand colour drives the hover glow/fill.
 const SOCIALS = [
@@ -44,6 +45,7 @@ const SOCIALS = [
 export default function Screen1Input({
   source, setSource, url, setUrl, upload, upPct, drag, setDrag, fileRef,
   doUpload, onClear, sourceReady, error, onContinue,
+  templates, activeTemplateId, onApplyTemplate,
 }) {
   const uploading = source === "upload" && upPct != null && !upload;
   const fileChosen = source === "upload" && (upload || upPct != null);
@@ -96,6 +98,12 @@ export default function Screen1Input({
         </div>
 
         {error && <div className="error landing-error">{error}</div>}
+
+        <TemplatePickerBar
+          templates={templates}
+          activeTemplateId={activeTemplateId}
+          onApplyTemplate={onApplyTemplate}
+        />
 
         <div className="landing-hints">
           {["Drag & drop a file onto the bar", "9:16, 16:9 & 1:1 square", "19 caption styles", "Manual reframe & keyframes"].map((h) => (

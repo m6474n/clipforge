@@ -1,0 +1,201 @@
+[
+  {
+    "id": "tpl_duo_split",
+    "name": "Gaming Duo (50/50 Split)",
+    "description": "Two equal stacked vertical frames: top facecam, bottom gameplay with bold yellow captions.",
+    "is_default": true,
+    "framing": {
+      "mode": "duo",
+      "split_pct": 50,
+      "frames": [
+        {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 100.0,
+          "height": 50.0,
+          "aspect_ratio": "custom"
+        },
+        {
+          "x": 0.0,
+          "y": 50.0,
+          "width": 100.0,
+          "height": 50.0,
+          "aspect_ratio": "custom"
+        }
+      ]
+    },
+    "caption": {
+      "preset": "alex_caps",
+      "pos_x": 50.0,
+      "pos_y": 88.0,
+      "overrides": {}
+    },
+    "text_overlay": {
+      "enabled": true,
+      "text": "WATCH TILL THE END \ud83d\ude31",
+      "font_family": "Roboto",
+      "font_size": 52,
+      "text_color": "#FFFFFF",
+      "bg_color": "#000000",
+      "bg_opacity": 80,
+      "padding": 16,
+      "border_radius": 12,
+      "pos_x": 50.0,
+      "pos_y": 14.0
+    },
+    "template_config": {
+      "preset": "none"
+    },
+    "output": {
+      "aspect": "9:16",
+      "fit": "crop",
+      "square_corners": "round",
+      "bar_text": "",
+      "bar_text_color": "#FFFFFF",
+      "bar_text_anim": "none"
+    },
+    "signature": {
+      "enabled": false,
+      "text": "@clipforge",
+      "pos_x": 50.0,
+      "pos_y": 92.0,
+      "size": 34.0,
+      "color": "#FFFFFF",
+      "opacity": 75.0
+    },
+    "cinematic": {
+      "color_grade": "vibrant",
+      "vignette": true,
+      "vignette_strength": 0.0
+    }
+  },
+  {
+    "id": "tpl_podcast_reaction",
+    "name": "Podcast Reaction (30/70 Duo)",
+    "description": "Top 30% reaction/facecam with bottom 70% main video footage.",
+    "is_default": true,
+    "framing": {
+      "mode": "duo",
+      "split_pct": 30,
+      "frames": [
+        {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 100.0,
+          "height": 30.0,
+          "aspect_ratio": "custom"
+        },
+        {
+          "x": 0.0,
+          "y": 30.0,
+          "width": 100.0,
+          "height": 70.0,
+          "aspect_ratio": "custom"
+        }
+      ]
+    },
+    "caption": {
+      "preset": "hormozi_yellow",
+      "pos_x": 50.0,
+      "pos_y": 88.0,
+      "overrides": {}
+    },
+    "text_overlay": {
+      "enabled": false,
+      "text": "WAIT FOR IT\u2026 \ud83d\udd25",
+      "font_family": "Montserrat",
+      "font_size": 52,
+      "text_color": "#FFFFFF",
+      "bg_color": "#000000",
+      "bg_opacity": 80,
+      "padding": 16,
+      "border_radius": 12,
+      "pos_x": 50.0,
+      "pos_y": 14.0
+    },
+    "template_config": {
+      "preset": "none"
+    },
+    "output": {
+      "aspect": "9:16",
+      "fit": "crop",
+      "square_corners": "round",
+      "bar_text": "",
+      "bar_text_color": "#FFFFFF",
+      "bar_text_anim": "none"
+    },
+    "signature": {
+      "enabled": false,
+      "text": "@creator",
+      "pos_x": 50.0,
+      "pos_y": 92.0,
+      "size": 34.0,
+      "color": "#FFFFFF",
+      "opacity": 75.0
+    },
+    "cinematic": {
+      "color_grade": "none"
+    }
+  },
+  {
+    "id": "tpl_solo_viral",
+    "name": "Viral Shorts (Solo 9:16 Full)",
+    "description": "Full vertical crop with centered Hormozi-style captions and vibrant color grade.",
+    "is_default": true,
+    "framing": {
+      "mode": "solo",
+      "split_pct": 50,
+      "frames": [
+        {
+          "x": 25.0,
+          "y": 10.0,
+          "width": 50.0,
+          "height": 80.0,
+          "aspect_ratio": "9:16"
+        }
+      ]
+    },
+    "caption": {
+      "preset": "hormozi_green",
+      "pos_x": 50.0,
+      "pos_y": 75.0,
+      "overrides": {}
+    },
+    "text_overlay": {
+      "enabled": false,
+      "text": "IMPORTANT NOTICE \ud83d\udea8",
+      "font_family": "Roboto",
+      "font_size": 52,
+      "text_color": "#FFFFFF",
+      "bg_color": "#000000",
+      "bg_opacity": 80,
+      "padding": 16,
+      "border_radius": 12,
+      "pos_x": 50.0,
+      "pos_y": 16.0
+    },
+    "template_config": {
+      "preset": "none"
+    },
+    "output": {
+      "aspect": "9:16",
+      "fit": "crop",
+      "square_corners": "round",
+      "bar_text": "",
+      "bar_text_color": "#FFFFFF",
+      "bar_text_anim": "none"
+    },
+    "signature": {
+      "enabled": false,
+      "text": "@clipforge",
+      "pos_x": 50.0,
+      "pos_y": 92.0,
+      "size": 34.0,
+      "color": "#FFFFFF",
+      "opacity": 75.0
+    },
+    "cinematic": {
+      "color_grade": "vibrant"
+    }
+  }
+]

@@ -2019,3 +2019,307 @@ select optgroup { font-weight: 700; }
   margin-top: -2px;
 }
 
+/* ---------- Template Picker Strip (Screen 1 & Bars) ---------- */
+.template-picker-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius, 12px);
+  padding: 8px 14px;
+  margin: 14px auto 0;
+  max-width: 680px;
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+.tpl-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2, rgba(255, 255, 255, 0.7));
+  white-space: nowrap;
+}
+.tpl-strip-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow-x: auto;
+  padding: 2px 0;
+}
+.tpl-strip-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--surface, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+  color: var(--text-2, rgba(255, 255, 255, 0.8));
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.tpl-strip-chip:hover {
+  background: var(--accent-soft, rgba(129, 140, 248, 0.15));
+  border-color: var(--accent, #6366f1);
+  color: #fff;
+}
+.tpl-strip-chip.active {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent-hi, #818cf8);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+.tpl-chip-name {
+  font-weight: 600;
+}
+.tpl-chip-mode {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.tpl-strip-save-btn {
+  background: none;
+  border: 1px dashed var(--line-2, rgba(255, 255, 255, 0.2));
+  color: var(--accent-hi, #818cf8);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.tpl-strip-save-btn:hover {
+  border-color: var(--accent-hi);
+  background: var(--accent-soft);
+}
+
+/* ---------- Saved Templates Manager ---------- */
+.saved-templates-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.stm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.stm-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text, #fff);
+}
+.stm-subtitle {
+  font-size: 12px;
+  color: var(--muted, rgba(255, 255, 255, 0.6));
+  margin: 4px 0 0;
+}
+.stm-save-trigger {
+  font-size: 12px;
+  padding: 7px 14px;
+}
+.stm-toast {
+  padding: 8px 14px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  animation: fadeIn 0.2s ease;
+}
+.stm-save-card {
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--accent, #6366f1);
+  border-radius: var(--radius, 10px);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.15);
+}
+.stm-save-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stm-save-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.stm-save-hint {
+  font-size: 12px;
+  color: var(--muted, rgba(255, 255, 255, 0.6));
+}
+.stm-form-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.stm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.stm-field input {
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--surface, rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  color: #fff;
+}
+.stm-current-summary {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.summary-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-2, rgba(255, 255, 255, 0.5));
+}
+.summary-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.summary-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--surface, rgba(255, 255, 255, 0.07));
+  border-radius: 4px;
+  color: var(--text-2, rgba(255, 255, 255, 0.8));
+}
+.stm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.stm-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.stm-card {
+  background: var(--surface, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius, 10px);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.15s ease;
+}
+.stm-card:hover {
+  border-color: var(--line-2, rgba(255, 255, 255, 0.18));
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+}
+.stm-card.is-active {
+  border-color: var(--accent, #6366f1);
+  background: var(--accent-soft, rgba(129, 140, 248, 0.07));
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+.stm-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.stm-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.stm-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #fff);
+}
+.stm-active-pill {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #22c55e;
+  color: #000;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.stm-default-pill {
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--surface-2, rgba(255, 255, 255, 0.1));
+  color: var(--muted, rgba(255, 255, 255, 0.7));
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.stm-card-desc {
+  font-size: 12px;
+  color: var(--muted, rgba(255, 255, 255, 0.6));
+  margin-top: 3px;
+}
+.stm-del-btn {
+  background: none;
+  border: 0;
+  color: var(--muted-2, rgba(255, 255, 255, 0.4));
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+.stm-del-btn:hover {
+  color: var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.1);
+}
+.stm-card-specs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.spec-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+  border-radius: 6px;
+  color: var(--text-2, rgba(255, 255, 255, 0.8));
+}
+.spec-badge b {
+  color: var(--text, #fff);
+}
+.stm-card-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.stm-apply-btn {
+  font-size: 12px;
+  padding: 6px 16px;
+}
+
