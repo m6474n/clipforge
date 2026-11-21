@@ -1050,10 +1050,37 @@ select optgroup { font-weight: 700; }
 .w2-advanced[open] > summary { color: var(--accent-hi); margin-bottom: 4px; }
 .w2-advanced[open] > summary::before { content: "▾ "; }
 
-.w3-grid { display: grid; grid-template-columns: minmax(380px, 480px) 1fr; gap: 16px; align-items: start; }
-.w3-left { min-width: 0; }
-.w3-right { min-width: 0; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 90px; }
-@media (max-width: 900px) { .w3-grid { grid-template-columns: 1fr; } .w3-right { position: static; } }
+.w3-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(310px, 3fr);
+  gap: 24px;
+  align-items: start;
+}
+.w3-left {
+  min-width: 0;
+  width: 100%;
+}
+.w3-right {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 90px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+@media (max-width: 1024px) {
+  .w3-grid {
+    grid-template-columns: 1fr;
+  }
+  .w3-right {
+    position: static;
+    max-width: 340px;
+    margin: 20px auto 0;
+  }
+}
 
 /* ---------- Reframe Editor ---------- */
 .reframe-editor { display: flex; flex-direction: column; gap: 16px; }
