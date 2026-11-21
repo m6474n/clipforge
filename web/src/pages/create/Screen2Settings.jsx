@@ -297,7 +297,9 @@ export default function Screen2Settings({
             overrides={studio.overrides}
             setOverride={studio.setOverride}
             framing={framing}
+            setFraming={setFraming}
             textOverlay={textOverlay}
+            setTextOverlay={setTextOverlay}
             templateConfig={templateConfig}
           />
           <div className={"prep prep-" + (prepView.phase || "idle")}>

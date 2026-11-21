@@ -208,8 +208,8 @@ def _inject_extra_ass(opts: ClipOptions, w: int, h: int) -> None:
         px = max(0.0, min(1.0, float(txt_ov.get("pos_x") if txt_ov.get("pos_x") is not None else 50.0) / 100.0))
         py = max(0.0, min(1.0, float(txt_ov.get("pos_y") if txt_ov.get("pos_y") is not None else 16.0) / 100.0))
         scale = w / 1080.0
-        size = max(14, int(round(float(txt_ov.get("font_size") or 34) * scale)))
-        pad = max(2, int(round(float(txt_ov.get("padding") or 14) * scale * 0.4)))
+        size = max(16, int(round(float(txt_ov.get("font_size") or 54) * scale * 1.35)))
+        pad = max(4, int(round(float(txt_ov.get("padding") or 16) * scale * 1.35)))
         c = (txt_ov.get("text_color") or "#FFFFFF").lstrip("#")
         bgr = f"{c[4:6]}{c[2:4]}{c[0:2]}".upper() if len(c) == 6 else "FFFFFF"
         bc = (txt_ov.get("bg_color") or "#000000").lstrip("#")
@@ -302,8 +302,8 @@ def _text_overlay_stages(
         return [], in_label
 
     scale = w / 1080.0
-    size = max(14, int(round(float(text_overlay.get("font_size") or 34) * scale)))
-    pad = max(4, int(round(float(text_overlay.get("padding") or 14) * scale)))
+    size = max(16, int(round(float(text_overlay.get("font_size") or 54) * scale * 1.35)))
+    pad = max(4, int(round(float(text_overlay.get("padding") or 16) * scale * 1.35)))
     tcol = (text_overlay.get("text_color") or "#FFFFFF").replace("#", "0x")
     bcol = (text_overlay.get("bg_color") or "#000000").replace("#", "0x")
     alpha = max(0.0, min(1.0, float(text_overlay.get("bg_opacity") if text_overlay.get("bg_opacity") is not None else 75.0) / 100.0))
@@ -479,12 +479,14 @@ def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_
     # Build framing layout
     if is_multi_frame:
         if mode == "duo":
+            split_pct = max(20.0, min(80.0, float(framing.get("split_pct", 50.0)))) / 100.0
             cell_w = width
-            cell_h = (height // 2) - ((height // 2) % 2)
+            h0 = int(round(height * split_pct / 2)) * 2
+            h1 = height - h0
             f0 = frames[0] if len(frames) > 0 else {}
             f1 = frames[1] if len(frames) > 1 else {}
-            stages.append(f"{_frame_cell_filter(vid_branches[0], f0, cell_w, cell_h)}[cell0]")
-            stages.append(f"{_frame_cell_filter(vid_branches[1], f1, cell_w, cell_h)}[cell1]")
+            stages.append(f"{_frame_cell_filter(vid_branches[0], f0, cell_w, h0)}[cell0]")
+            stages.append(f"{_frame_cell_filter(vid_branches[1], f1, cell_w, h1)}[cell1]")
             stages.append("[cell0][cell1]vstack[v_frame]")
         elif mode == "triple":
             w0 = (width // 2) - ((width // 2) % 2)

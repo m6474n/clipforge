@@ -42,7 +42,7 @@ function SaveBlock({ s, open, setOpen }) {
 export default function Screen3Captions({
   studio, language, onFontUpload, media, prepView, sourceReady,
   transcript, curTime, seekTo, videoRef, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig,
-  framing, textOverlay, templateConfig,
+  framing, setFraming, textOverlay, setTextOverlay, templateConfig,
   onBack, onNext,
 }) {
   const [tab, setTab] = useState("themes");
@@ -116,7 +116,7 @@ export default function Screen3Captions({
             barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
             overrides={studio.overrides} setOverride={studio.setOverride}
-            framing={framing} textOverlay={textOverlay} templateConfig={templateConfig} />
+            framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig} />
           <div className={"prep prep-" + (prepView.phase || "idle")}>
             <div className="prep-row">
               <span className="prep-msg">

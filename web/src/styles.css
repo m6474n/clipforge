@@ -1350,9 +1350,50 @@ select optgroup { font-weight: 700; }
 
 /* Phone Mockup Live Preview Layers */
 .preview-fixed-text-overlay {
-  position: absolute; z-index: 20; pointer-events: none; word-break: break-word;
-  line-height: 1.3; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  position: absolute;
+  z-index: 25;
+  word-break: break-word;
+  line-height: 1.25;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: box-shadow 0.15s ease;
 }
+.preview-fixed-text-overlay:active {
+  cursor: grabbing;
+}
+.preview-fixed-text-overlay:hover,
+.preview-fixed-text-overlay.is-dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: 3px;
+}
+.text-ov-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border: 1px solid #000;
+  border-radius: 50%;
+  z-index: 30;
+  cursor: nwse-resize;
+  opacity: 0.85;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.text-ov-resize-handle:hover {
+  transform: scale(1.3);
+  opacity: 1;
+}
+.text-ov-resize-handle.br {
+  right: -5px;
+  bottom: -5px;
+}
+.text-ov-resize-handle.bl {
+  left: -5px;
+  bottom: -5px;
+  cursor: nesw-resize;
+}
+
 .preview-twitter-card {
   position: absolute; top: 12%; left: 6%; right: 6%; z-index: 15;
   background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px);
@@ -1389,14 +1430,90 @@ select optgroup { font-weight: 700; }
 .preview-news-text { font-size: 11px; font-weight: 700; line-height: 1.3; margin-top: 2px; }
 .template-custom-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
 
-/* Split Frames Grid Preview */
+/* Split Frames Grid Preview & Interactive Controls */
 .media-box.is-split-layout { overflow: hidden; }
 .split-frames-grid { width: 100%; height: 100%; display: grid; gap: 2px; background: #000; }
-.split-frames-grid.mode-duo { grid-template-rows: 1fr 1fr; grid-template-columns: 1fr; }
+.split-frames-grid.mode-duo { display: flex; flex-direction: column; width: 100%; height: 100%; gap: 0; }
 .split-frames-grid.mode-triple { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
 .split-frames-grid.mode-triple .split-frame-cell:first-child { grid-row: 1 / span 2; }
 .split-frames-grid.mode-quad { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-.split-frame-cell { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; }
+.split-frame-cell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.split-frame-cell:active {
+  cursor: grabbing;
+}
+.duo-split-divider {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 12;
+  user-select: none;
+  touch-action: none;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.duo-split-divider:hover,
+.duo-split-divider:active {
+  background: var(--accent);
+}
+.divider-handle-bar {
+  width: 28px;
+  height: 2.5px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.7);
+}
+.preview-frame-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 3px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0.65;
+  transition: opacity 0.2s;
+}
+.split-frame-cell:hover .preview-frame-toolbar,
+.is-solo-cell:hover .preview-frame-toolbar {
+  opacity: 1;
+}
+.preview-zoom-btn {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 0;
+  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.preview-zoom-btn:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
 .framed-cell-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
 .framed-media-element {
   position: absolute;

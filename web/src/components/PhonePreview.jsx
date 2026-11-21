@@ -215,10 +215,12 @@ function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, lo
 export default function PhonePreview({
   cfg, cinematic, language, media, preparing, aspect, fit,
   barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef,
-  framing, textOverlay, templateConfig,
+  framing, setFraming, textOverlay, setTextOverlay, templateConfig,
 }) {
   const screenRef = useRef(null);
+  const mediaBoxRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const [textDragActive, setTextDragActive] = useState(false);
   const [screenW, setScreenW] = useState(224);
   const reg = regions(aspect, fit);
 
@@ -295,6 +297,149 @@ export default function PhonePreview({
     ? "quad"
     : "solo";
 
+  const splitPct = Math.max(20, Math.min(80, framing?.split_pct ?? 50));
+
+  // Duo mode live divider drag
+  function startDividerDrag(e) {
+    if (!setFraming) return;
+    e.preventDefault(); e.stopPropagation();
+    const container = mediaBoxRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const onMove = (ev) => {
+      const clientY = ev.clientY || (ev.touches && ev.touches[0].clientY);
+      const pct = ((clientY - rect.top) / rect.height) * 100;
+      const clamped = Math.max(20, Math.min(80, Math.round(pct)));
+      setFraming((prev) => ({ ...prev, split_pct: clamped }));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove);
+    window.addEventListener("touchend", onUp);
+  }
+
+  // Direct video frame pan & scale on the mobile preview
+  function startFramePan(e, frameIndex) {
+    if (!setFraming || !framesList[frameIndex]) return;
+    if (e.target.closest(".preview-frame-toolbar") || e.target.closest(".duo-split-divider") || e.target.closest(".preview-fixed-text-overlay")) return;
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX || (e.touches && e.touches[0].clientX);
+    const startY = e.clientY || (e.touches && e.touches[0].clientY);
+    const origFrame = { ...framesList[frameIndex] };
+    const curW = screenW || 224;
+    const onMove = (ev) => {
+      const cx = ev.clientX || (ev.touches && ev.touches[0].clientX);
+      const cy = ev.clientY || (ev.touches && ev.touches[0].clientY);
+      const deltaXPct = -((cx - startX) / curW) * 55;
+      const deltaYPct = -((cy - startY) / (curW * 1.5)) * 55;
+      const newX = Math.max(0, Math.min(100 - origFrame.width, origFrame.x + deltaXPct));
+      const newY = Math.max(0, Math.min(100 - origFrame.height, origFrame.y + deltaYPct));
+      setFraming((prev) => {
+        const frames = [...(prev.frames || [])];
+        frames[frameIndex] = {
+          ...frames[frameIndex],
+          x: Math.round(newX * 10) / 10,
+          y: Math.round(newY * 10) / 10,
+        };
+        return { ...prev, frames };
+      });
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove);
+    window.addEventListener("touchend", onUp);
+  }
+
+  function zoomFrame(frameIndex, zoomIn) {
+    if (!setFraming || !framesList[frameIndex]) return;
+    const f = framesList[frameIndex];
+    const factor = zoomIn ? 0.9 : 1.1;
+    const newW = Math.max(10, Math.min(100, f.width * factor));
+    const newH = Math.max(10, Math.min(100, f.height * factor));
+    const newX = Math.max(0, Math.min(100 - newW, f.x + (f.width - newW) / 2));
+    const newY = Math.max(0, Math.min(100 - newH, f.y + (f.height - newH) / 2));
+    setFraming((prev) => {
+      const frames = [...(prev.frames || [])];
+      frames[frameIndex] = {
+        ...frames[frameIndex],
+        x: Math.round(newX * 10) / 10,
+        y: Math.round(newY * 10) / 10,
+        width: Math.round(newW * 10) / 10,
+        height: Math.round(newH * 10) / 10,
+      };
+      return { ...prev, frames };
+    });
+  }
+
+  // Interactive Text Overlay Drag (Move & Resize)
+  function startTextMove(e) {
+    if (!setTextOverlay) return;
+    if (e.target.closest(".text-ov-resize-handle")) return;
+    e.preventDefault(); e.stopPropagation();
+    setTextDragActive(true);
+    const r = screenRef.current.getBoundingClientRect();
+    const onMove = (ev) => {
+      const p = ev.touches ? ev.touches[0] : ev;
+      let px = ((p.clientX - r.left) / r.width) * 100;
+      let py = (((p.clientY - r.top) / r.height) * 100 - reg.top) / reg.height * 100;
+      px = Math.max(5, Math.min(95, Math.round(px)));
+      py = Math.max(5, Math.min(95, Math.round(py)));
+      setTextOverlay((prev) => ({ ...prev, pos_x: px, pos_y: py }));
+    };
+    const onUp = () => {
+      setTextDragActive(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove);
+    window.addEventListener("touchend", onUp);
+  }
+
+  function startTextResize(e) {
+    if (!setTextOverlay) return;
+    e.preventDefault(); e.stopPropagation();
+    setTextDragActive(true);
+    const startX = e.clientX || (e.touches && e.touches[0].clientX);
+    const startY = e.clientY || (e.touches && e.touches[0].clientY);
+    const origSize = textOverlay.font_size || 54;
+    const origPad = textOverlay.padding || 16;
+    const onMove = (ev) => {
+      const cx = ev.clientX || (ev.touches && ev.touches[0].clientX);
+      const cy = ev.clientY || (ev.touches && ev.touches[0].clientY);
+      const delta = ((cx - startX) + (cy - startY)) * 0.45;
+      const newSize = Math.max(18, Math.min(140, Math.round(origSize + delta)));
+      const newPad = Math.max(6, Math.min(48, Math.round(origPad + delta * 0.25)));
+      setTextOverlay((prev) => ({ ...prev, font_size: newSize, padding: newPad }));
+    };
+    const onUp = () => {
+      setTextDragActive(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove);
+    window.addEventListener("touchend", onUp);
+  }
+
   return (
     <div className="phone">
       <div ref={screenRef} className={"phone-screen" + (!media ? " empty" : "")}>
@@ -342,6 +487,7 @@ export default function PhonePreview({
 
         {/* Main Media Box */}
         <div
+          ref={mediaBoxRef}
           className={`media-box ${isMultiFrame ? "is-split-layout" : ""}`}
           style={{
             ...reg.box,
@@ -354,27 +500,111 @@ export default function PhonePreview({
         >
           {media && (media.kind === "video" || media.kind === "embed") ? (
             isMultiFrame && framesList.length > 1 ? (
-              <div className={`split-frames-grid mode-${layoutMode}`}>
-                {framesList.map((f, i) => (
-                  <div key={i} className="split-frame-cell">
+              layoutMode === "duo" ? (
+                <div
+                  className="split-frames-grid mode-duo"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100%",
+                    width: "100%",
+                  }}
+                >
+                  <div
+                    className="split-frame-cell"
+                    style={{ height: `${splitPct}%`, position: "relative" }}
+                    onMouseDown={(e) => startFramePan(e, 0)}
+                    onTouchStart={(e) => startFramePan(e, 0)}
+                    title="Drag video to pan framing position"
+                  >
                     <FramedMedia
                       media={media}
-                      frame={f}
+                      frame={framesList[0]}
                       videoRef={videoRef}
-                      isMaster={i === 0}
+                      isMaster={true}
                     />
-                    <div className="split-cell-tag">Frame {i + 1}</div>
+                    <div className="split-cell-tag">Frame 1 ({Math.round(splitPct)}%)</div>
+                    <div className="preview-frame-toolbar">
+                      <button type="button" className="preview-zoom-btn" title="Zoom In" onClick={(e) => { e.stopPropagation(); zoomFrame(0, true); }}>+</button>
+                      <button type="button" className="preview-zoom-btn" title="Zoom Out" onClick={(e) => { e.stopPropagation(); zoomFrame(0, false); }}>−</button>
+                    </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Interactive Split Divider */}
+                  <div
+                    className="duo-split-divider"
+                    title="Drag up/down to adjust section sizes"
+                    onMouseDown={startDividerDrag}
+                    onTouchStart={startDividerDrag}
+                  >
+                    <div className="divider-handle-bar" />
+                  </div>
+
+                  <div
+                    className="split-frame-cell"
+                    style={{ height: `calc(${100 - splitPct}% - 6px)`, position: "relative" }}
+                    onMouseDown={(e) => startFramePan(e, 1)}
+                    onTouchStart={(e) => startFramePan(e, 1)}
+                    title="Drag video to pan framing position"
+                  >
+                    <FramedMedia
+                      media={media}
+                      frame={framesList[1]}
+                      videoRef={videoRef}
+                      isMaster={false}
+                    />
+                    <div className="split-cell-tag">Frame 2 ({100 - Math.round(splitPct)}%)</div>
+                    <div className="preview-frame-toolbar">
+                      <button type="button" className="preview-zoom-btn" title="Zoom In" onClick={(e) => { e.stopPropagation(); zoomFrame(1, true); }}>+</button>
+                      <button type="button" className="preview-zoom-btn" title="Zoom Out" onClick={(e) => { e.stopPropagation(); zoomFrame(1, false); }}>−</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={`split-frames-grid mode-${layoutMode}`}>
+                  {framesList.map((f, i) => (
+                    <div
+                      key={i}
+                      className="split-frame-cell"
+                      onMouseDown={(e) => startFramePan(e, i)}
+                      onTouchStart={(e) => startFramePan(e, i)}
+                      title="Drag video to pan framing position"
+                    >
+                      <FramedMedia
+                        media={media}
+                        frame={f}
+                        videoRef={videoRef}
+                        isMaster={i === 0}
+                      />
+                      <div className="split-cell-tag">Frame {i + 1}</div>
+                      <div className="preview-frame-toolbar">
+                        <button type="button" className="preview-zoom-btn" title="Zoom In" onClick={(e) => { e.stopPropagation(); zoomFrame(i, true); }}>+</button>
+                        <button type="button" className="preview-zoom-btn" title="Zoom Out" onClick={(e) => { e.stopPropagation(); zoomFrame(i, false); }}>−</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
             ) : (
-              <FramedMedia
-                media={media}
-                frame={framesList[0]}
-                videoRef={videoRef}
-                isMaster={true}
-                isSolo={true}
-              />
+              <div
+                className="split-frame-cell is-solo-cell"
+                style={{ width: "100%", height: "100%" }}
+                onMouseDown={(e) => startFramePan(e, 0)}
+                onTouchStart={(e) => startFramePan(e, 0)}
+                title="Drag video to pan framing position"
+              >
+                <FramedMedia
+                  media={media}
+                  frame={framesList[0]}
+                  videoRef={videoRef}
+                  isMaster={true}
+                  isSolo={true}
+                />
+                <div className="preview-frame-toolbar">
+                  <button type="button" className="preview-zoom-btn" title="Zoom In" onClick={(e) => { e.stopPropagation(); zoomFrame(0, true); }}>+</button>
+                  <button type="button" className="preview-zoom-btn" title="Zoom Out" onClick={(e) => { e.stopPropagation(); zoomFrame(0, false); }}>−</button>
+                </div>
+              </div>
             )
           ) : (
             <div className="media-ph">
@@ -414,26 +644,47 @@ export default function PhonePreview({
           </div>
         )}
 
-        {/* Fixed Text Overlay */}
-        {textOverlay && textOverlay.enabled && (textOverlay.text || "").trim() && (
-          <div
-            className="preview-fixed-text-overlay"
-            style={{
-              left: `${textOverlay.pos_x || 50}%`,
-              top: `${textOverlay.pos_y || 16}%`,
-              transform: "translate(-50%, -50%)",
-              fontFamily: textOverlay.font_family || "Roboto-Bold",
-              fontSize: `${Math.max(9, (textOverlay.font_size || 34) * (screenW / 1080))}px`,
-              color: textOverlay.text_color || "#FFFFFF",
-              backgroundColor: hexToRgba(textOverlay.bg_color || "#000000", (textOverlay.bg_opacity != null ? textOverlay.bg_opacity : 75) / 100),
-              padding: `${(textOverlay.padding || 14) * 0.35}px ${(textOverlay.padding || 14) * 0.55}px`,
-              borderRadius: `${(textOverlay.border_radius || 12) * 0.4}px`,
-              textAlign: textOverlay.alignment || "center",
-            }}
-          >
-            {textOverlay.text}
-          </div>
-        )}
+        {/* Fixed Text Overlay with Live Drag & Resize */}
+        {textOverlay && textOverlay.enabled && (textOverlay.text || "").trim() && (() => {
+          const ovScale = (screenW / 1080) * 1.35;
+          const fontSize = Math.max(12, Math.round((textOverlay.font_size || 54) * ovScale));
+          const paddingH = Math.max(6, Math.round((textOverlay.padding || 16) * ovScale * 1.2));
+          const paddingV = Math.max(4, Math.round((textOverlay.padding || 16) * ovScale * 0.8));
+          return (
+            <div
+              className={`preview-fixed-text-overlay ${textDragActive ? "is-dragging" : ""}`}
+              style={{
+                left: `${textOverlay.pos_x ?? 50}%`,
+                top: `${textOverlay.pos_y ?? 16}%`,
+                transform: "translate(-50%, -50%)",
+                fontFamily: textOverlay.font_family || "Roboto-Bold",
+                fontSize: `${fontSize}px`,
+                color: textOverlay.text_color || "#FFFFFF",
+                backgroundColor: hexToRgba(textOverlay.bg_color || "#000000", (textOverlay.bg_opacity != null ? textOverlay.bg_opacity : 75) / 100),
+                padding: `${paddingV}px ${paddingH}px`,
+                borderRadius: `${Math.round((textOverlay.border_radius || 12) * ovScale * 1.2)}px`,
+                textAlign: textOverlay.alignment || "center",
+              }}
+              onMouseDown={startTextMove}
+              onTouchStart={startTextMove}
+              title="Drag to reposition headline · Drag corner handle to resize"
+            >
+              {textOverlay.text}
+              <div
+                className="text-ov-resize-handle br"
+                title="Drag to scale font size"
+                onMouseDown={startTextResize}
+                onTouchStart={startTextResize}
+              />
+              <div
+                className="text-ov-resize-handle bl"
+                title="Drag to scale font size"
+                onMouseDown={startTextResize}
+                onTouchStart={startTextResize}
+              />
+            </div>
+          );
+        })()}
 
         {/* Square Title Header */}
         {fit === "square" && barText && (

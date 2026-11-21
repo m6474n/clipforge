@@ -69,6 +69,7 @@ export default function Create({ step, setStep }) {
   // Framing (solo, duo, triple, quad)
   const [framing, setFraming] = useState({
     mode: "solo",
+    split_pct: 50,
     frames: [{ x: 25, y: 10, width: 50, height: 80, aspect_ratio: "9:16" }],
   });
 
@@ -77,11 +78,11 @@ export default function Create({ step, setStep }) {
     enabled: false,
     text: "WAIT TILL THE END 😱",
     font_family: "Roboto-Bold",
-    font_size: 34,
+    font_size: 54,
     text_color: "#FFFFFF",
     bg_color: "#000000",
     bg_opacity: 80,
-    padding: 14,
+    padding: 16,
     border_radius: 12,
     alignment: "center",
     pos_x: 50,
@@ -385,7 +386,7 @@ export default function Create({ step, setStep }) {
           transcript={transcript} curTime={curTime} seekTo={seekTo} videoRef={videoRef} duration={vidDuration}
           aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
           signature={signature} setSig={setSig}
-          framing={framing} textOverlay={textOverlay} templateConfig={templateConfig}
+          framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
           onBack={() => setStep(2)} onNext={() => setStep(4)}
         />
       )}
@@ -395,7 +396,7 @@ export default function Create({ step, setStep }) {
           studio={studio} language={language} media={media} sourceReady={sourceReady}
           aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
           signature={signature} setSig={setSig} videoRef={videoRef}
-          framing={framing} textOverlay={textOverlay} templateConfig={templateConfig}
+          framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
           onBack={() => setStep(3)} onNext={() => setStep(5)}
         />
       )}
@@ -409,7 +410,7 @@ export default function Create({ step, setStep }) {
           studio={studio} language={language} media={media} sourceReady={sourceReady}
           aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
           signature={signature} setSig={setSig} videoRef={videoRef}
-          framing={framing} textOverlay={textOverlay} templateConfig={templateConfig}
+          framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
           onBack={() => setStep(4)} onNext={() => setStep(6)}
         />
       )}

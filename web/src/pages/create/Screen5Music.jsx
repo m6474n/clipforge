@@ -7,7 +7,7 @@ export default function Screen5Music({
   tracks, musicTrack, musicVolume, musicDuck, musicStart, musicSuggest,
   onTrack, onVolume, onDuck, onStart, onMusicUpload, onRefreshMusic,
   studio, language, media, sourceReady, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig, videoRef,
-  framing, textOverlay, templateConfig,
+  framing, setFraming, textOverlay, setTextOverlay, templateConfig,
   onBack, onNext,
 }) {
   return (
@@ -25,7 +25,7 @@ export default function Screen5Music({
             barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
             overrides={studio.overrides} setOverride={studio.setOverride}
-            framing={framing} textOverlay={textOverlay} templateConfig={templateConfig} />
+            framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig} />
         </div>
       </div>
 

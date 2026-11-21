@@ -83,12 +83,12 @@ export default function TextOverlayEditor({ textOverlay, setTextOverlay }) {
               </select>
             </div>
 
-            <div style={{ width: 120 }}>
+            <div style={{ width: 140 }}>
               <label className="fieldlabel">Size: {current.font_size}px</label>
               <input
                 type="range"
-                min="16"
-                max="72"
+                min="18"
+                max="140"
                 value={current.font_size}
                 onChange={(e) => update("font_size", +e.target.value)}
                 className="range"

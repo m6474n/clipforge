@@ -270,6 +270,7 @@ class FramingConfig(BaseModel):
     """Multi-frame layout configuration (solo, duo, triple, quad)."""
     mode: str = Field(default="solo", description="Layout mode: solo, duo, triple, quad")
     frames: List[FrameCrop] = Field(default_factory=list, description="List of frame crop boxes")
+    split_pct: float = Field(default=50.0, ge=10.0, le=90.0, description="Duo split percentage for top section (10-90%).")
 
 
 class TextOverlay(BaseModel):
@@ -277,11 +278,11 @@ class TextOverlay(BaseModel):
     enabled: bool = Field(default=False)
     text: str = Field(default="", max_length=200)
     font_family: str = Field(default="Roboto-Bold")
-    font_size: int = Field(default=38, ge=12, le=120)
+    font_size: int = Field(default=54, ge=12, le=140)
     text_color: str = Field(default="#FFFFFF")
     bg_color: str = Field(default="#000000")
     bg_opacity: float = Field(default=75.0, ge=0.0, le=100.0)
-    padding: int = Field(default=14, ge=0, le=60)
+    padding: int = Field(default=16, ge=0, le=60)
     border_radius: int = Field(default=12, ge=0, le=50)
     alignment: str = Field(default="center", description="left, center, right")
     pos_x: float = Field(default=50.0, ge=0.0, le=100.0, description="% horizontal center")

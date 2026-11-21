@@ -272,6 +272,44 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
         </div>
       </div>
 
+      {/* Duo Mode Vertical Split Distribution */}
+      {mode === "duo" && (
+        <div className="duo-split-control-bar" style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12, padding: "10px 14px", background: "var(--surface-2)", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <label className="fieldlabel" style={{ margin: 0, fontSize: 12 }}>Vertical Split Distribution</label>
+              <span className="ctl-hint" style={{ fontWeight: 700, color: "var(--accent)" }}>
+                Top: {Math.round(framing.split_pct ?? 50)}% · Bottom: {100 - Math.round(framing.split_pct ?? 50)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="20"
+              max="80"
+              value={framing.split_pct ?? 50}
+              onChange={(e) => setFraming({ ...framing, split_pct: +e.target.value })}
+              className="range"
+            />
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[
+              ["50/50", 50],
+              ["65/35", 65],
+              ["35/65", 35],
+            ].map(([lbl, val]) => (
+              <button
+                key={lbl}
+                type="button"
+                className={`btn btn-xs ${(framing.split_pct ?? 50) === val ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setFraming({ ...framing, split_pct: val })}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Frame selector chips if multi-frame */}
       {frames.length > 1 && (
         <div className="multi-frame-chips">
