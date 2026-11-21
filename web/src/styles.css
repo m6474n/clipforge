@@ -459,7 +459,7 @@ select { appearance: none; cursor: pointer;
   width: 5px; height: 5px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #2b3b55, #060608 70%);
 }
 .media-box { position: absolute; overflow: hidden; border-radius: 6px; }
-.media-box video, .media-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; display: block; background: #000; }
+.media-box > video, .media-box > iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; display: block; background: #000; }
 .media-box .ov { position: absolute; pointer-events: none; z-index: 2; }
 .media-ph { position: absolute; inset: 0; display: grid; place-items: center; padding: 18px; text-align: center; color: var(--muted-2); font-size: 11.5px; line-height: 1.5; }
 .preview-pill { position: absolute; top: 6%; left: 9%; z-index: 7; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: rgba(10, 10, 16, .55); border: 1px solid rgba(255, 255, 255, .12); backdrop-filter: blur(6px); color: #fff; }
@@ -1391,26 +1391,26 @@ select optgroup { font-weight: 700; }
 
 /* Split Frames Grid Preview */
 .media-box.is-split-layout { overflow: hidden; }
-.split-frames-grid { width: 100%; height: 100%; display: grid; gap: 4px; background: #000; }
-.split-frames-grid.mode-duo { grid-template-rows: 1fr 1fr; }
+.split-frames-grid { width: 100%; height: 100%; display: grid; gap: 2px; background: #000; }
+.split-frames-grid.mode-duo { grid-template-rows: 1fr 1fr; grid-template-columns: 1fr; }
 .split-frames-grid.mode-triple { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
 .split-frames-grid.mode-triple .split-frame-cell:first-child { grid-row: 1 / span 2; }
 .split-frames-grid.mode-quad { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-.split-frame-cell { position: relative; width: 100%; height: 100%; overflow: hidden; background: #111; }
+.split-frame-cell { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; }
+.framed-cell-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
 .framed-media-element {
-  position: absolute !important;
-  inset: auto !important;
-  max-width: none !important;
-  max-height: none !important;
-  object-fit: fill !important;
-  border: 0 !important;
-  display: block !important;
-  pointer-events: none !important;
+  position: absolute;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  display: block;
+  pointer-events: none;
 }
 .split-cell-tag {
-  position: absolute; bottom: 4px; left: 4px; font-size: 8px; font-weight: 700;
-  background: rgba(0,0,0,0.7); color: #fff; padding: 1px 4px; border-radius: 2px;
-  z-index: 5; pointer-events: none;
+  position: absolute; bottom: 6px; left: 6px; font-size: 9px; font-weight: 700;
+  background: rgba(0,0,0,0.75); color: #fff; padding: 2px 6px; border-radius: 4px;
+  z-index: 5; pointer-events: none; border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(4px);
 }
 
 /* ==========================================================================

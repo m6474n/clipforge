@@ -66,54 +66,141 @@ function getEmbedSrc(src, muted = true) {
   return src;
 }
 
-function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, loop = true }) {
-  if (!media) return null;
-  const f = frame || { x: 0, y: 0, width: 100, height: 100 };
-  const w = Math.max(1, f.width || 100);
-  const h = Math.max(1, f.height || 100);
-  const left = -((f.x || 0) / w) * 100;
-  const top = -((f.y || 0) / h) * 100;
-  const widthPct = (100 / w) * 100;
-  const heightPct = (100 / h) * 100;
+function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, loop = true, isMaster = false }) {
+  const containerRef = useRef(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [videoAR, setVideoAR] = useState(16 / 9);
+  const vidRef = useRef(null);
 
-  const style = {
+  // Measure cell container size dynamically
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setSize({ w: rect.width, h: rect.height });
+      }
+    };
+    updateSize();
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(updateSize);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+  }, []);
+
+  // Sync playback with master videoRef if available
+  useEffect(() => {
+    const master = videoRef?.current;
+    const slave = vidRef.current;
+    if (!master || !slave || master === slave) return;
+
+    const syncTime = () => {
+      if (Math.abs(slave.currentTime - master.currentTime) > 0.25) {
+        slave.currentTime = master.currentTime;
+      }
+    };
+    const syncPlay = () => slave.play().catch(() => {});
+    const syncPause = () => slave.pause();
+
+    master.addEventListener("timeupdate", syncTime);
+    master.addEventListener("play", syncPlay);
+    master.addEventListener("pause", syncPause);
+    if (!master.paused) slave.play().catch(() => {});
+
+    return () => {
+      master.removeEventListener("timeupdate", syncTime);
+      master.removeEventListener("play", syncPlay);
+      master.removeEventListener("pause", syncPause);
+    };
+  }, [videoRef]);
+
+  if (!media) return null;
+
+  // Fallback dimensions if container not yet measured
+  const cellW = size.w || 224;
+  const cellH = size.h || 199;
+
+  const f = frame || { x: 0, y: 0, width: 100, height: 100 };
+  const fx = Math.max(0, Math.min(100, f.x || 0)) / 100;
+  const fy = Math.max(0, Math.min(100, f.y || 0)) / 100;
+  const fw = Math.max(0.05, Math.min(1, (f.width || 100) / 100));
+  const fh = Math.max(0.05, Math.min(1, (f.height || 100) / 100));
+
+  // Compute exact pixel dimensions maintaining video aspect ratio without distortion
+  const boxAR = (fw / fh) * videoAR;
+  const cellAR = cellW / Math.max(1, cellH);
+
+  let vidW, vidH, left, top;
+
+  if (boxAR >= cellAR) {
+    // Crop box is wider than cell -> match height, cover width
+    vidH = cellH / fh;
+    vidW = vidH * videoAR;
+    const boxW = fw * vidW;
+    top = -fy * vidH;
+    left = -fx * vidW + (cellW - boxW) / 2;
+  } else {
+    // Crop box is taller than cell -> match width, cover height
+    vidW = cellW / fw;
+    vidH = vidW / videoAR;
+    const boxH = fh * vidH;
+    left = -fx * vidW;
+    top = -fy * vidH + (cellH - boxH) / 2;
+  }
+
+  const mediaStyle = {
     position: "absolute",
-    left: `${left}%`,
-    top: `${top}%`,
-    width: `${widthPct}%`,
-    height: `${heightPct}%`,
+    left: `${Math.round(left)}px`,
+    top: `${Math.round(top)}px`,
+    width: `${Math.round(vidW)}px`,
+    height: `${Math.round(vidH)}px`,
     maxWidth: "none",
     maxHeight: "none",
-    objectFit: "fill",
+    objectFit: "cover",
     border: 0,
     pointerEvents: "none",
     display: "block",
   };
 
-  if (media.kind === "embed") {
-    return (
-      <iframe
-        className="framed-media-element"
-        src={getEmbedSrc(media.src, muted)}
-        style={style}
-        allow="autoplay; encrypted-media; picture-in-picture"
-        allowFullScreen
-        referrerPolicy="strict-origin-when-cross-origin"
-      />
-    );
-  }
+  const handleRef = (el) => {
+    vidRef.current = el;
+    if (isMaster && videoRef) {
+      if (typeof videoRef === "function") videoRef(el);
+      else videoRef.current = el;
+    }
+  };
 
   return (
-    <video
-      ref={videoRef}
-      className="framed-media-element"
-      src={media.src}
-      muted={muted}
-      loop={loop}
-      autoPlay={autoPlay}
-      playsInline
-      style={style}
-    />
+    <div ref={containerRef} className="framed-cell-container" style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden" }}>
+      {media.kind === "embed" ? (
+        <iframe
+          className="framed-media-element"
+          src={getEmbedSrc(media.src, muted)}
+          style={mediaStyle}
+          allow="autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      ) : (
+        <video
+          ref={handleRef}
+          className="framed-media-element"
+          src={media.src}
+          muted={muted}
+          loop={loop}
+          autoPlay={autoPlay}
+          playsInline
+          style={mediaStyle}
+          onLoadedMetadata={(e) => {
+            if (e.target.videoWidth && e.target.videoHeight) {
+              setVideoAR(e.target.videoWidth / e.target.videoHeight);
+            }
+          }}
+        />
+      )}
+    </div>
   );
 }
 
@@ -188,7 +275,17 @@ export default function PhonePreview({
   const videoScale = hasTemplate ? (tpl.video_scale || 100) / 100 : 1;
 
   // Multi-frame layout calculation
-  const isMultiFrame = framing && framing.mode && framing.mode !== "solo" && framing.frames && framing.frames.length > 1;
+  const framesList = framing?.frames && framing.frames.length > 0 ? framing.frames : [];
+  const isMultiFrame = (framing?.mode && framing.mode !== "solo") || framesList.length > 1;
+  const layoutMode = framing?.mode && framing.mode !== "solo"
+    ? framing.mode
+    : framesList.length === 2
+    ? "duo"
+    : framesList.length === 3
+    ? "triple"
+    : framesList.length >= 4
+    ? "quad"
+    : "solo";
 
   return (
     <div className="phone">
@@ -248,17 +345,27 @@ export default function PhonePreview({
           }}
         >
           {media && (media.kind === "video" || media.kind === "embed") ? (
-            isMultiFrame ? (
-              <div className={`split-frames-grid mode-${framing.mode}`}>
-                {framing.frames.map((f, i) => (
+            isMultiFrame && framesList.length > 1 ? (
+              <div className={`split-frames-grid mode-${layoutMode}`}>
+                {framesList.map((f, i) => (
                   <div key={i} className="split-frame-cell">
-                    <FramedMedia media={media} frame={f} />
+                    <FramedMedia
+                      media={media}
+                      frame={f}
+                      videoRef={videoRef}
+                      isMaster={i === 0}
+                    />
                     <div className="split-cell-tag">Frame {i + 1}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <FramedMedia media={media} frame={framing?.frames?.[0]} videoRef={videoRef} />
+              <FramedMedia
+                media={media}
+                frame={framesList[0]}
+                videoRef={videoRef}
+                isMaster={true}
+              />
             )
           ) : (
             <div className="media-ph">
