@@ -90,6 +90,14 @@ function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, lo
     }
   }, []);
 
+  // Update videoAR immediately if video is already loaded / cached
+  useEffect(() => {
+    const v = vidRef.current;
+    if (v && v.videoWidth && v.videoHeight) {
+      setVideoAR(v.videoWidth / v.videoHeight);
+    }
+  }, [media?.src]);
+
   // Sync playback with master videoRef if available
   useEffect(() => {
     const master = videoRef?.current;
@@ -158,7 +166,7 @@ function FramedMedia({ media, frame, videoRef, autoPlay = true, muted = true, lo
     height: `${Math.round(vidH)}px`,
     maxWidth: "none",
     maxHeight: "none",
-    objectFit: "cover",
+    objectFit: "fill",
     border: 0,
     pointerEvents: "none",
     display: "block",

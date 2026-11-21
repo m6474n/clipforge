@@ -66,6 +66,14 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
   const [curTime, setCurTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [videoAspect, setVideoAspect] = useState("16 / 9");
+
+  useEffect(() => {
+    const v = localVideoRef.current;
+    if (v && v.videoWidth && v.videoHeight) {
+      setVideoAspect(`${v.videoWidth} / ${v.videoHeight}`);
+    }
+  }, [media?.src]);
 
   const handleVideoRef = (el) => {
     localVideoRef.current = el;
@@ -293,6 +301,7 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
       <div
         className={`framing-canvas-container ${dragState ? "is-dragging" : ""}`}
         ref={containerRef}
+        style={{ aspectRatio: videoAspect }}
         onClick={(e) => {
           // If user clicks on background canvas (not a crop box handle), toggle playback
           if (media?.kind !== "embed" && (e.target === containerRef.current || e.target.classList.contains("framing-source-video"))) {
@@ -318,6 +327,9 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
               loop
               onLoadedMetadata={(e) => {
                 setDuration(e.target.duration || 0);
+                if (e.target.videoWidth && e.target.videoHeight) {
+                  setVideoAspect(`${e.target.videoWidth} / ${e.target.videoHeight}`);
+                }
               }}
               onTimeUpdate={(e) => {
                 setCurTime(e.target.currentTime || 0);
