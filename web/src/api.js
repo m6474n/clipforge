@@ -33,6 +33,8 @@ export const api = {
   musicSuggest: (sourceId, language) => jget(`/api/music-suggest/${sourceId}` + (language ? `?language=${encodeURIComponent(language)}` : "")),
   transcript: (sourceId, language) => jget(`/api/transcript/${sourceId}` + (language ? `?language=${encodeURIComponent(language)}` : "")),
   result: (jobId) => jget(`/api/result/${jobId}`),
+  getConfig: () => jget("/api/config"),
+  updateConfig: (data) => jpost("/api/config", data),
   prefetch: (video_url) => jpost("/api/prefetch", { video_url }),
   prefetchStatus: (id) => jget(`/api/prefetch/${id}`),
   pretranscribe: (source_id, device, language) => jpost("/api/pretranscribe", { source_id, device, language }),

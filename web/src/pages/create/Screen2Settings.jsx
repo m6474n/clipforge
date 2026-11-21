@@ -303,13 +303,24 @@ export default function Screen2Settings({
             templateConfig={templateConfig}
           />
           <div className={"prep prep-" + (prepView.phase || "idle")}>
-            <div className="prep-row">
-              <span className="prep-msg">
+            <div className="prep-row" style={{ alignItems: "center" }}>
+              <span className="prep-msg" style={{ flex: 1, minWidth: 0 }}>
                 {["downloading", "transcribing", "downloaded", "idle"].includes(prepView.phase) && <span className="spinner" />}
                 {prepView.phase === "ready" && <span className="prep-ok">✓</span>}
                 {prepView.phase === "error" && <span className="prep-ok" style={{ color: "var(--danger)" }}>!</span>}
                 {prepView.message || "Preparing video…"}
               </span>
+              {prepView.phase === "ready" && !prepView.transcriptReady && prepView.onManualTranscribe && (
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  style={{ marginLeft: 8, flexShrink: 0, padding: "2px 8px", fontSize: 11 }}
+                  onClick={prepView.onManualTranscribe}
+                  title="Run local Whisper AI speech transcription"
+                >
+                  🎙️ Transcribe Now
+                </button>
+              )}
               {prepView.pct != null && <span className="prep-pct">{prepView.pct}%</span>}
             </div>
             <div className="track">

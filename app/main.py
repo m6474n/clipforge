@@ -127,6 +127,36 @@ class SelectModelRequest(BaseModel):
     device: str = "auto"
 
 
+class ConfigUpdateRequest(BaseModel):
+    model_size: Optional[str] = None
+    auto_transcribe: Optional[bool] = None
+
+
+@app.get("/api/config")
+def get_app_config() -> dict:
+    """Return local configuration including Whisper model and auto-transcribe setting."""
+    cfg = transcriber.get_config()
+    return {
+        "model_size": cfg.get("model_size") or transcriber.get_model_size(),
+        "auto_transcribe": transcriber.get_auto_transcribe(),
+    }
+
+
+@app.post("/api/config")
+def update_app_config(req: ConfigUpdateRequest) -> dict:
+    """Update settings like auto_transcribe or model_size."""
+    updates = {}
+    if req.model_size is not None:
+        updates["model_size"] = req.model_size
+    if req.auto_transcribe is not None:
+        updates["auto_transcribe"] = req.auto_transcribe
+    transcriber.save_config(updates)
+    return {
+        "model_size": transcriber.get_saved_model(),
+        "auto_transcribe": transcriber.get_auto_transcribe(),
+    }
+
+
 @app.get("/api/system-and-models")
 def system_and_models() -> dict:
     """System hardware detection, available Whisper models with metadata, and current selection."""
@@ -137,6 +167,7 @@ def system_and_models() -> dict:
         "is_configured": transcriber.is_configured(),
         "active_model": transcriber.get_model_size(),
         "status": transcriber.model_status(),
+        "auto_transcribe": transcriber.get_auto_transcribe(),
     }
 
 

@@ -121,9 +121,21 @@ export default function Create({ step, setStep }) {
   const [curTime, setCurTime] = useState(0);
   const [vidDuration, setVidDuration] = useState(null);
   const [transcript, setTranscript] = useState({ ready: false, loading: false, segments: [], duration: null });
+  const [autoTranscribe, setAutoTranscribe] = useState(() => {
+    return localStorage.getItem("cf_auto_transcribe") !== "false";
+  });
+
+  useEffect(() => {
+    api.getConfig().then((cfg) => {
+      if (cfg && cfg.auto_transcribe !== undefined) {
+        setAutoTranscribe(cfg.auto_transcribe);
+        localStorage.setItem("cf_auto_transcribe", cfg.auto_transcribe);
+      }
+    }).catch(() => {});
+  }, []);
 
   const studio = useStudio(presets, fonts, language);
-  const prep = usePrep(device, language);
+  const prep = usePrep(device, language, autoTranscribe);
 
   function startPrep() {
     if (source === "url" && url.trim()) prep.startUrl(url.trim());
@@ -222,11 +234,16 @@ export default function Create({ step, setStep }) {
   const sourceReady = source === "upload" ? !!(upload || objUrl) : !!url.trim();
 
   const prepView = useMemo(() => {
-    if (source === "upload" && upPct != null && !upload) {
-      return { phase: "downloading", pct: upPct, message: upPct >= 100 ? "Processing upload…" : "Uploading your video…" };
-    }
-    return prep.prep;
-  }, [source, upPct, upload, prep.prep]);
+    const base = (source === "upload" && upPct != null && !upload)
+      ? { phase: "downloading", pct: upPct, message: upPct >= 100 ? "Processing upload…" : "Uploading your video…" }
+      : { ...prep.prep };
+    return {
+      ...base,
+      autoTranscribe,
+      transcriptReady: !!transcript.ready,
+      onManualTranscribe: () => prep.manualTranscribe(srcId),
+    };
+  }, [source, upPct, upload, prep.prep, autoTranscribe, transcript.ready, srcId]);
 
   async function generate() {
     setError("");

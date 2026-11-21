@@ -299,35 +299,49 @@ def get_available_models() -> list[dict]:
     return res
 
 
-def get_saved_model() -> Optional[str]:
-    """Return the model size configured by the user, if any."""
-    if env_model := os.environ.get("WHISPER_MODEL"):
-        return env_model.strip()
+def get_config() -> dict:
+    """Read the local configuration file."""
     if CONFIG_FILE.is_file():
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data.get("model_size")
+                return json.load(f)
         except Exception as exc:
             logger.debug("Could not read config file: %s", exc)
-    return None
+    return {}
 
 
-def save_selected_model(model_name: str) -> None:
-    """Save the chosen model to the local config file."""
-    data = {}
-    if CONFIG_FILE.is_file():
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
-    data["model_size"] = model_name
+def save_config(updates: dict) -> dict:
+    """Update and persist the local configuration file."""
+    data = get_config()
+    data.update(updates)
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
     except Exception as exc:
-        logger.warning("Could not save model to %s: %s", CONFIG_FILE, exc)
+        logger.warning("Could not save config to %s: %s", CONFIG_FILE, exc)
+    return data
+
+
+def get_auto_transcribe() -> bool:
+    """Return whether background auto-transcription is enabled (default True)."""
+    return bool(get_config().get("auto_transcribe", True))
+
+
+def set_auto_transcribe(enabled: bool) -> bool:
+    save_config({"auto_transcribe": bool(enabled)})
+    return bool(enabled)
+
+
+def get_saved_model() -> Optional[str]:
+    """Return the model size configured by the user, if any."""
+    if env_model := os.environ.get("WHISPER_MODEL"):
+        return env_model.strip()
+    return get_config().get("model_size")
+
+
+def save_selected_model(model_name: str) -> None:
+    """Save the chosen model to the local config file."""
+    save_config({"model_size": model_name})
 
 
 def is_configured() -> bool:

@@ -7,10 +7,15 @@ const mb = (b) => (b / 1048576).toFixed(b >= 10485760 ? 0 : 1);
 // pre-transcribe it (progress) so Generate is instant. For uploads the file is
 // already on disk, so it skips straight to transcription. Mirrors the vanilla
 // app's prefetch + pretranscribe pipeline.
-export function usePrep(device, language) {
+export function usePrep(device, language, autoTranscribe = true) {
   const [prep, setPrep] = useState({ phase: "idle", message: "", pct: null });
   const [downloadId, setDownloadId] = useState(null);
   const r = useRef({ pf: null, pt: null, sourceId: null, urlKey: null });
+  const autoTranscribeRef = useRef(autoTranscribe);
+
+  useEffect(() => {
+    autoTranscribeRef.current = autoTranscribe;
+  }, [autoTranscribe]);
 
   const lang = () => (language === "auto" ? null : language);
   const clear = () => { clearTimeout(r.current.pf); clearTimeout(r.current.pt); r.current.pf = r.current.pt = null; };
@@ -26,8 +31,13 @@ export function usePrep(device, language) {
       const s = await api.prefetchStatus(id);
       if (s.status === "done") {
         setDownloadId(s.download_id);
-        setPrep({ phase: "downloaded", message: "Downloaded — preparing transcript…", pct: 100 });
-        startTranscribe(s.download_id, lang());
+        r.current.sourceId = s.download_id;
+        if (autoTranscribeRef.current !== false) {
+          setPrep({ phase: "downloaded", message: "Downloaded — preparing transcript…", pct: 100 });
+          startTranscribe(s.download_id, lang());
+        } else {
+          setPrep({ phase: "ready", message: "Ready — video downloaded (auto-transcribe off)", pct: 100 });
+        }
       } else if (s.status === "error") {
         r.current.urlKey = null;  // allow an automatic retry on re-entry
         setPrep({ phase: "error", message: s.error || s.message || "Download failed.", pct: null });
@@ -68,7 +78,15 @@ export function usePrep(device, language) {
     reset(); r.current.urlKey = url;
     setPrep({ phase: "downloading", message: "Starting download…", pct: null });
     api.prefetch(url).then((s) => {
-      if (s.status === "done") { setDownloadId(s.download_id); startTranscribe(s.download_id, lang()); }
+      if (s.status === "done") {
+        setDownloadId(s.download_id);
+        r.current.sourceId = s.download_id;
+        if (autoTranscribeRef.current !== false) {
+          startTranscribe(s.download_id, lang());
+        } else {
+          setPrep({ phase: "ready", message: "Ready — video downloaded (auto-transcribe off)", pct: 100 });
+        }
+      }
       else r.current.pf = setTimeout(() => pollPrefetch(s.prefetch_id), 500);
     }).catch((e) => {
       r.current.urlKey = null;  // let re-entering Step 2 retry this URL
@@ -80,14 +98,26 @@ export function usePrep(device, language) {
     if (!uploadId) return;
     if (r.current.sourceId === uploadId) return; // already preparing this upload
     clear(); setDownloadId(null);
-    startTranscribe(uploadId, lang());
+    r.current.sourceId = uploadId;
+    if (autoTranscribeRef.current !== false) {
+      startTranscribe(uploadId, lang());
+    } else {
+      setPrep({ phase: "ready", message: "Ready — video uploaded (auto-transcribe off)", pct: 100 });
+    }
+  }
+
+  function manualTranscribe(sourceId) {
+    const sid = sourceId || r.current.sourceId || downloadId;
+    if (sid) startTranscribe(sid, lang());
   }
 
   // Re-prepare the transcript in a newly chosen language (download is reused).
   function relang(newLang) {
-    if (r.current.sourceId) startTranscribe(r.current.sourceId, newLang === "auto" ? null : newLang);
+    if (r.current.sourceId && autoTranscribeRef.current !== false) {
+      startTranscribe(r.current.sourceId, newLang === "auto" ? null : newLang);
+    }
   }
 
   useEffect(() => () => clear(), []);
-  return { prep, downloadId, startUrl, startUpload, relang, reset };
+  return { prep, downloadId, startUrl, startUpload, manualTranscribe, relang, reset };
 }
