@@ -244,6 +244,16 @@ def schedule_post(
     if not text.strip() and not media_url:
         raise ValueError("Either caption text or a media URL is required.")
 
+    if media_url:
+        parsed = urllib.parse.urlparse(media_url.strip())
+        hostname = (parsed.hostname or "").lower()
+        if hostname in ("localhost", "127.0.0.1", "0.0.0.0"):
+            raise ValueError(
+                "Buffer cannot access videos hosted on 'localhost' or '127.0.0.1'. "
+                "Buffer's cloud servers need a publicly reachable URL to ingest the video. "
+                "Please configure a public tunnel URL in Settings (e.g. run 'ngrok http 8000' and paste the ngrok URL into 'Public Media Base URL') or provide a public video link."
+            )
+
     # Fetch channels map to detect service types for platform-specific metadata
     profiles = get_profiles()
     channel_map = {p["id"]: p for p in profiles}
@@ -285,7 +295,10 @@ def schedule_post(
         metadata: Dict[str, Any] = {}
 
         if service == "instagram":
-            metadata["instagram"] = {"type": "reel"}
+            metadata["instagram"] = {
+                "type": "reel",
+                "shouldShareToFeed": True,
+            }
         elif service == "youtube":
             metadata["youtube"] = {
                 "title": clean_title,

@@ -337,8 +337,13 @@ export default function BufferScheduleModal({ clip, onClose, onOpenSettings }) {
                 onChange={(e) => setMediaUrl(e.target.value)}
                 placeholder="https://your-public-url.com/clips/..."
               />
+              {mediaUrl && (mediaUrl.includes("localhost") || mediaUrl.includes("127.0.0.1") || mediaUrl.includes("0.0.0.0")) && (
+                <div style={{ marginTop: "8px", padding: "10px 12px", background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(245, 158, 11, 0.35)", borderRadius: "8px", fontSize: "12px", color: "#f59e0b", lineHeight: "1.4" }}>
+                  ⚠️ <strong>Buffer needs a public URL:</strong> Buffer is a cloud service and cannot reach your computer at <code>localhost</code>. Run a tunnel (e.g. <code>ngrok http 8000</code>) and set it in Settings under <strong>Public Media Base URL</strong>, or paste any publicly hosted video link.
+                </div>
+              )}
               <div className="ctl-hint" style={{ marginTop: "4px", fontSize: "11px" }}>
-                💡 If testing locally, enter a Cloudflare Tunnel, Ngrok, or public S3/R2 video link. You can also save a default public base URL in Settings.
+                💡 Buffer fetches and publishes the video directly from this URL.
               </div>
             </div>
 
