@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, templates, transcriber, uploads
+from . import buffer_service, captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, templates, transcriber, uploads
 from .clipper import ClipOptions, generate_clip
 from .models import ClipGenerationError, Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
 from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, WEB_DIST_DIR, ensure_dirs
@@ -603,6 +603,81 @@ def result(job_id: str) -> dict:
     if job is None:
         raise HTTPException(status_code=404, detail="Unknown job id.")
     return job.snapshot()
+
+
+# --------------------------------------------------------------------------- #
+# Buffer.com Social Media Scheduling & MCP Integration
+# --------------------------------------------------------------------------- #
+
+
+class BufferConfigRequest(BaseModel):
+    access_token: Optional[str] = None
+    public_base_url: Optional[str] = None
+
+
+class BufferScheduleRequest(BaseModel):
+    profile_ids: list[str]
+    text: str
+    media_url: Optional[str] = None
+    clip_path: Optional[str] = None
+    scheduled_at: Optional[int] = None
+    now: bool = False
+    title: Optional[str] = None
+
+
+@app.get("/api/buffer/status")
+def buffer_status() -> dict:
+    """Check Buffer API configuration and connection status."""
+    conn = buffer_service.test_connection()
+    return {
+        **conn,
+        "public_base_url": buffer_service.get_public_base_url(),
+    }
+
+
+@app.post("/api/buffer/config")
+def buffer_save_config(req: BufferConfigRequest) -> dict:
+    """Save or update Buffer access token and public base URL."""
+    if req.access_token is not None:
+        buffer_service.set_access_token(req.access_token)
+    if req.public_base_url is not None:
+        buffer_service.set_public_base_url(req.public_base_url)
+    return buffer_status()
+
+
+@app.get("/api/buffer/profiles")
+def buffer_profiles() -> list:
+    """Fetch connected social profiles from Buffer."""
+    try:
+        return buffer_service.get_profiles()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/buffer/schedule")
+def buffer_schedule(req: BufferScheduleRequest) -> dict:
+    """Schedule or publish a video update to selected Buffer profiles."""
+    media_url = req.media_url
+    if not media_url and req.clip_path:
+        base_url = buffer_service.get_public_base_url()
+        if base_url:
+            media_url = f"{base_url.rstrip('/')}/{req.clip_path.lstrip('/')}"
+        else:
+            media_url = req.clip_path
+
+    try:
+        res = buffer_service.schedule_post(
+            profile_ids=req.profile_ids,
+            text=req.text,
+            media_url=media_url,
+            scheduled_at=req.scheduled_at,
+            now=req.now,
+            title=req.title,
+        )
+        return res
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
 
 
 # Catch-all guard: turn any unexpected error into a clean 500 (no crash).

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Icons } from "../components/Icons.jsx";
+import BufferScheduleModal from "../components/BufferScheduleModal.jsx";
 
 function deriveName(entry) {
   if (entry.source_type === "upload") return entry.source || "Uploaded video";
@@ -13,6 +14,7 @@ function deriveName(entry) {
 export default function Library() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scheduleTarget, setScheduleTarget] = useState(null);
 
   const load = () => api.history().then((h) => setHistory(Array.isArray(h) ? h : [])).catch(() => setHistory([])).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
@@ -54,12 +56,39 @@ export default function Library() {
                 <div className="sub">{deriveName(c.entry)}</div>
                 <div className="acts">
                   <a href={c.url} download={c.filename || ""}>Download</a>
+                  <button
+                    type="button"
+                    style={{
+                      background: "rgba(182, 255, 46, 0.12)",
+                      border: "1px solid var(--accent, #b6ff2e)",
+                      color: "var(--accent, #b6ff2e)",
+                      fontWeight: 700,
+                      borderRadius: 6,
+                      padding: "4px 10px",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                    onClick={() => setScheduleTarget(c)}
+                    title="Post or schedule this short via Buffer.com"
+                  >
+                    🚀 Buffer
+                  </button>
                   <button onClick={() => del(c.entry, c)}>Delete</button>
                 </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {scheduleTarget && (
+        <BufferScheduleModal
+          clip={scheduleTarget}
+          onClose={() => setScheduleTarget(null)}
+        />
       )}
     </>
   );

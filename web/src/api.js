@@ -70,6 +70,10 @@ export const api = {
     return d; // { family, file }
   },
   linkLocal: (filename, size, path) => jpost("/api/link-local", { filename, size, path }),
+  bufferStatus: () => jget("/api/buffer/status"),
+  bufferSaveConfig: (data) => jpost("/api/buffer/config", data),
+  bufferProfiles: () => jget("/api/buffer/profiles"),
+  bufferSchedule: (payload) => jpost("/api/buffer/schedule", payload),
   upload: async (file, onProgress) =>
     new Promise((resolve, reject) => {
       const fd = new FormData();
