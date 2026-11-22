@@ -7,6 +7,7 @@ bad or blocked URL.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -128,7 +129,21 @@ def download_video(
     if not url or not url.strip():
         raise InvalidVideoURLError("No video URL was provided.")
 
-    clip_uuid = uuid.uuid4().hex
+    clean_url = url.strip()
+    clip_uuid = hashlib.sha256(clean_url.encode("utf-8")).hexdigest()[:32]
+    # If this video was already downloaded into downloads/<id>.*, reuse it immediately
+    existing_matches = [
+        p for p in DOWNLOADS_DIR.glob(f"{clip_uuid}.*")
+        if not p.name.endswith((".part", ".ytdl", ".temp", ".aria2")) and p.stat().st_size > 0
+    ]
+    if existing_matches:
+        existing_matches.sort(key=lambda p: (0 if p.suffix.lower() == ".mp4" else 1, p.name))
+        hit = existing_matches[0]
+        logger.info("Reusing existing downloaded video for %s -> %s", clean_url, hit.name)
+        if progress_hook is not None:
+            progress_hook({"status": "finished", "total_bytes": hit.stat().st_size, "downloaded_bytes": hit.stat().st_size})
+        return hit
+
     # yt-dlp fills in the real extension; we force a merge to mp4 below so the
     # final file is downloads/<uuid>.mp4.
     out_template = str(DOWNLOADS_DIR / f"{clip_uuid}.%(ext)s")

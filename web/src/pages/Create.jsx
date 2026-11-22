@@ -125,6 +125,18 @@ export default function Create({ step, setStep }) {
     return localStorage.getItem("cf_auto_transcribe") !== "false";
   });
 
+  // Project Draft Persistence
+  const [savedDraft, setSavedDraft] = useState(() => {
+    try {
+      const raw = localStorage.getItem("cf_active_project_draft");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [showTranscriptPrompt, setShowTranscriptPrompt] = useState(false);
+  const promptShownRef = useRef(false);
+
   // Project Layout Templates
   const [templates, setTemplates] = useState(() => {
     try {
@@ -276,10 +288,14 @@ export default function Create({ step, setStep }) {
   }, [fonts]);
 
   const media = useMemo(() => {
-    if (source === "upload") return objUrl ? { kind: "video", src: objUrl } : null;
+    if (source === "upload") {
+      if (objUrl) return { kind: "video", src: objUrl };
+      if (upload?.upload_id) return { kind: "video", src: `/api/download/${upload.upload_id}/video` };
+      return null;
+    }
     if (prep.downloadId) return { kind: "video", src: `/api/download/${prep.downloadId}/video` };
     return parseEmbed(url.trim());
-  }, [source, objUrl, url, prep.downloadId]);
+  }, [source, objUrl, upload, url, prep.downloadId]);
 
   const srcId = (source === "upload" ? upload?.upload_id : prep.downloadId) || null;
   useEffect(() => {
@@ -444,6 +460,123 @@ export default function Create({ step, setStep }) {
     setReframeTarget(null);
   }
 
+  const saveProjectDraft = (overrideStep) => {
+    if (!sourceReady) return null;
+    const draft = {
+      savedAt: Date.now(),
+      savedAtText: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      step: overrideStep || step,
+      source,
+      url,
+      upload: upload ? { upload_id: upload.upload_id, filename: upload.filename } : null,
+      aspect,
+      fit,
+      squareCorners,
+      barText,
+      barTextColor,
+      barTextAnim,
+      numClips,
+      clipLen,
+      language,
+      device,
+      signature: JSON.parse(JSON.stringify(signature)),
+      framing: JSON.parse(JSON.stringify(framing)),
+      textOverlay: JSON.parse(JSON.stringify(textOverlay)),
+      templateConfig: JSON.parse(JSON.stringify(templateConfig)),
+      captionPreset: studio.activeKey || studio.styleId || "alex_caps",
+      captionOverrides: JSON.parse(JSON.stringify(studio.overrides || {})),
+      cinematic: JSON.parse(JSON.stringify(studio.cinematic || {})),
+      musicTrack,
+      musicVolume,
+      musicDuck,
+      musicStart,
+      hasTranscript: !!transcript.ready,
+      transcriptCount: transcript.segments?.length || 0,
+      transcriptDuration: transcript.duration,
+      transcriptSegments: (transcript.segments || []).slice(0, 500),
+    };
+    try {
+      localStorage.setItem("cf_active_project_draft", JSON.stringify(draft));
+      setSavedDraft(draft);
+    } catch {}
+    return draft;
+  };
+
+  const resumeDraft = () => {
+    if (!savedDraft) return;
+    setSource(savedDraft.source || "url");
+    setUrl(savedDraft.url || "");
+    if (savedDraft.upload) {
+      setUpload(savedDraft.upload);
+    }
+    if (savedDraft.aspect) setAspect(savedDraft.aspect);
+    if (savedDraft.fit) setFit(savedDraft.fit);
+    if (savedDraft.squareCorners) setSquareCorners(savedDraft.squareCorners);
+    if (savedDraft.barText !== undefined) setBarText(savedDraft.barText);
+    if (savedDraft.barTextColor) setBarTextColor(savedDraft.barTextColor);
+    if (savedDraft.barTextAnim) setBarTextAnim(savedDraft.barTextAnim);
+    if (savedDraft.numClips) setNumClips(savedDraft.numClips);
+    if (savedDraft.clipLen !== undefined) setClipLen(savedDraft.clipLen);
+    if (savedDraft.language) setLanguage(savedDraft.language);
+    if (savedDraft.device) setDevice(savedDraft.device);
+    if (savedDraft.signature) setSignature(savedDraft.signature);
+    if (savedDraft.framing) setFraming(savedDraft.framing);
+    if (savedDraft.textOverlay) setTextOverlay(savedDraft.textOverlay);
+    if (savedDraft.templateConfig) setTemplateConfig(savedDraft.templateConfig);
+    if (savedDraft.musicTrack !== undefined) setMusicTrack(savedDraft.musicTrack);
+    if (savedDraft.musicVolume !== undefined) setMusicVolume(savedDraft.musicVolume);
+    if (savedDraft.musicDuck !== undefined) setMusicDuck(savedDraft.musicDuck);
+    if (savedDraft.musicStart !== undefined) setMusicStart(savedDraft.musicStart);
+
+    if (savedDraft.captionPreset) {
+      studio.loadCaptionConfig(savedDraft.captionPreset, savedDraft.captionOverrides, savedDraft.cinematic);
+    }
+
+    if (savedDraft.transcriptSegments && savedDraft.transcriptSegments.length) {
+      setTranscript({
+        ready: true,
+        loading: false,
+        segments: savedDraft.transcriptSegments,
+        duration: savedDraft.transcriptDuration || null,
+      });
+    }
+
+    const targetStep = Math.max(2, savedDraft.step || 2);
+    setStep(targetStep);
+
+    if (savedDraft.source === "url" && savedDraft.url) {
+      prep.startUrl(savedDraft.url);
+    } else if (savedDraft.upload?.upload_id) {
+      prep.startUpload(savedDraft.upload.upload_id);
+    }
+  };
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem("cf_active_project_draft");
+    } catch {}
+    setSavedDraft(null);
+    setShowTranscriptPrompt(false);
+    promptShownRef.current = false;
+    restart();
+  };
+
+  // When transcript finishes in background, notify the user with option to save/clear
+  useEffect(() => {
+    if (transcript.ready && !promptShownRef.current && (srcId || sourceReady)) {
+      promptShownRef.current = true;
+      saveProjectDraft(step);
+      setShowTranscriptPrompt(true);
+    }
+  }, [transcript.ready, srcId, sourceReady]);
+
+  // Keep draft updated whenever user progresses past Step 1
+  useEffect(() => {
+    if (step >= 2 && sourceReady) {
+      saveProjectDraft(step);
+    }
+  }, [step]);
+
   function restart() {
     setStep(1);
     setSource("url"); setUrl(""); setUpload(null); setUpPct(null);
@@ -478,6 +611,7 @@ export default function Create({ step, setStep }) {
           upload={upload} upPct={upPct} drag={drag} setDrag={setDrag} fileRef={fileRef}
           doUpload={doUpload} onClear={() => doUpload(null)} sourceReady={sourceReady} error={error}
           templates={templates} activeTemplateId={activeTemplateId} onApplyTemplate={applyTemplate}
+          savedDraft={savedDraft} onResumeDraft={resumeDraft} onClearDraft={clearDraft}
           onContinue={() => { startPrep(); setStep(2); }}
         />
       )}
@@ -553,18 +687,100 @@ export default function Create({ step, setStep }) {
         <Screen7Export clips={clips} onBack={() => setStep(6)} onRestart={restart} />
       )}
 
-      {showStepper && (
-        <div className="wizard-steps wizard-steps-bottom">
-          {WIZARD_LABELS.slice(1).map((lbl, i) => {
-            const n = i + 2;
-            return (
-              <button key={lbl} type="button" className={"wizard-step" + (step === n ? " active" : step > n ? " done" : "")}
-                onClick={() => setStep(n)} title={`Jump to ${lbl}`}>
-                <span className="wizard-step-dot">{step > n ? "✓" : n - 1}</span>
-                <span className="wizard-step-lbl">{lbl}</span>
+      {showTranscriptPrompt && (
+        <div className="transcript-prompt-overlay" onClick={() => setShowTranscriptPrompt(false)}>
+          <div className="transcript-prompt-modal card" onClick={(e) => e.stopPropagation()}>
+            <div className="tpm-header">
+              <div className="tpm-icon">✨</div>
+              <div className="tpm-titles">
+                <h3>Captions Generated &amp; Project Saved!</h3>
+                <p>
+                  Whisper AI transcribed <strong>{transcript.segments?.length || 0} segments</strong>.
+                  Your project is cached so you can adjust frames, templates, and caption styles without ever waiting for transcription again!
+                </p>
+              </div>
+            </div>
+            <div className="tpm-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  saveProjectDraft(step);
+                  setShowTranscriptPrompt(false);
+                }}
+              >
+                <Icons.check /> Continue Editing Frames
               </button>
-            );
-          })}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  saveProjectDraft(step);
+                  setShowTranscriptPrompt(false);
+                  setStep(2);
+                }}
+              >
+                📐 Adjust Framing &amp; Layout
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger-outline"
+                onClick={() => {
+                  clearDraft();
+                }}
+              >
+                🗑️ Clear Project &amp; Start New
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStepper && (
+        <div className="wizard-bottom-container">
+          <div className="wizard-draft-bar">
+            <span className="wdb-label">
+              {transcript.ready ? "🟢 Captions Cached" : "⚡ Project Active"}
+            </span>
+            <div className="wdb-btns">
+              <button
+                type="button"
+                className="btn-wdb-save"
+                onClick={() => {
+                  saveProjectDraft(step);
+                  alert("Project draft & captions saved!");
+                }}
+                title="Save current project draft"
+              >
+                💾 Save Draft
+              </button>
+              <button
+                type="button"
+                className="btn-wdb-clear"
+                onClick={() => {
+                  if (window.confirm("Clear this project draft and start fresh?")) {
+                    clearDraft();
+                  }
+                }}
+                title="Discard project draft"
+              >
+                🗑️ Clear Project
+              </button>
+            </div>
+          </div>
+
+          <div className="wizard-steps wizard-steps-bottom">
+            {WIZARD_LABELS.slice(1).map((lbl, i) => {
+              const n = i + 2;
+              return (
+                <button key={lbl} type="button" className={"wizard-step" + (step === n ? " active" : step > n ? " done" : "")}
+                  onClick={() => setStep(n)} title={`Jump to ${lbl}`}>
+                  <span className="wizard-step-dot">{step > n ? "✓" : n - 1}</span>
+                  <span className="wizard-step-lbl">{lbl}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </>

@@ -19,3 +19,4 @@ env/
 
 # Runtime logs
 *.log
+.DS_Store

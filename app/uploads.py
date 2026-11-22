@@ -11,6 +11,7 @@ outside the downloads directory (no path traversal).
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import shutil
@@ -53,20 +54,38 @@ def save_upload(filename: str, fileobj: BinaryIO) -> dict:
             f"file ({', '.join(sorted(ALLOWED_EXTS))})."
         )
 
-    upload_id = uuid.uuid4().hex
-    dest = DOWNLOADS_DIR / f"{upload_id}{ext}"
+    # Stream to a temporary file while computing sha256 for deterministic caching
+    temp_id = uuid.uuid4().hex
+    temp_dest = DOWNLOADS_DIR / f"tmp_{temp_id}{ext}"
+    hasher = hashlib.sha256()
+
     try:
-        with dest.open("wb") as out:
-            shutil.copyfileobj(fileobj, out, length=1024 * 1024)
+        with temp_dest.open("wb") as out:
+            while True:
+                chunk = fileobj.read(1024 * 1024)
+                if not chunk:
+                    break
+                hasher.update(chunk)
+                out.write(chunk)
     except OSError as exc:
+        temp_dest.unlink(missing_ok=True)
         logger.exception("Failed to save upload %s", filename)
         raise InvalidVideoURLError(f"Could not save the uploaded file: {exc}") from exc
 
-    if not dest.exists() or dest.stat().st_size == 0:
-        dest.unlink(missing_ok=True)
+    if not temp_dest.exists() or temp_dest.stat().st_size == 0:
+        temp_dest.unlink(missing_ok=True)
         raise InvalidVideoURLError("The uploaded file was empty.")
 
-    logger.info("Saved upload %s -> %s (%d bytes)", filename, dest.name, dest.stat().st_size)
+    upload_id = hasher.hexdigest()[:32]
+    final_dest = DOWNLOADS_DIR / f"{upload_id}{ext}"
+
+    if final_dest.exists() and final_dest.stat().st_size == temp_dest.stat().st_size:
+        temp_dest.unlink(missing_ok=True)
+        logger.info("Reusing existing upload %s -> %s (%d bytes)", filename, final_dest.name, final_dest.stat().st_size)
+    else:
+        temp_dest.replace(final_dest)
+        logger.info("Saved upload %s -> %s (%d bytes)", filename, final_dest.name, final_dest.stat().st_size)
+
     return {"upload_id": upload_id, "filename": Path(filename or "video").name, "ext": ext}
 
 

@@ -46,6 +46,7 @@ export default function Screen1Input({
   source, setSource, url, setUrl, upload, upPct, drag, setDrag, fileRef,
   doUpload, onClear, sourceReady, error, onContinue,
   templates, activeTemplateId, onApplyTemplate,
+  savedDraft, onResumeDraft, onClearDraft,
 }) {
   const uploading = source === "upload" && upPct != null && !upload;
   const fileChosen = source === "upload" && (upload || upPct != null);
@@ -64,6 +65,44 @@ export default function Screen1Input({
           Paste a link or drop a file — ClipForge finds the best moments, reframes them
           vertical, and burns on styled captions, right on your own machine.
         </p>
+
+        {savedDraft && (
+          <div className="project-draft-banner">
+            <div className="draft-banner-content">
+              <div className="draft-pill">
+                <span className="draft-dot-pulse" />
+                SAVED PROJECT DRAFT DETECTED
+              </div>
+              <div className="draft-main-row">
+                <h3 className="draft-video-name">
+                  {savedDraft.upload?.filename || savedDraft.url || "Untitled Project"}
+                </h3>
+              </div>
+              <div className="draft-meta-tags">
+                {savedDraft.hasTranscript ? (
+                  <span className="draft-tag draft-tag-transcript">
+                    ✓ Captions Generated ({savedDraft.transcriptCount} segments) — Instant Edit
+                  </span>
+                ) : (
+                  <span className="draft-tag draft-tag-video">Video Loaded</span>
+                )}
+                <span className="draft-tag draft-tag-layout">
+                  {savedDraft.framing?.mode === "duo" ? `Duo Split (${savedDraft.framing.split_pct}%)` : (savedDraft.framing?.mode || "Solo")}
+                </span>
+                <span className="draft-tag draft-tag-aspect">{savedDraft.aspect || "9:16"}</span>
+                <span className="draft-time-saved">Saved {savedDraft.savedAtText || "recently"}</span>
+              </div>
+            </div>
+            <div className="draft-banner-actions">
+              <button type="button" className="btn btn-resume-draft" onClick={onResumeDraft}>
+                <Icons.bolt /> Resume Project
+              </button>
+              <button type="button" className="btn btn-clear-draft" onClick={onClearDraft} title="Discard this saved draft and start fresh">
+                ✕ Clear Project
+              </button>
+            </div>
+          </div>
+        )}
 
         <div
           className={"cmdbar" + (drag ? " drag" : "")}
