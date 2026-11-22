@@ -20,4 +20,7 @@ env/
 # Runtime logs and configs
 *.log
 .DS_Store
+.env
+.env.*
+!.env.example
 clipforge_config.json

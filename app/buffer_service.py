@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import os
+import ssl
 from typing import Any, Dict, List, Optional
 import urllib.error
 import urllib.parse
@@ -23,7 +24,26 @@ from .paths import CONFIG_FILE
 
 logger = logging.getLogger("app.buffer")
 
+# Automatically load .env if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv(CONFIG_FILE.parent / ".env")
+except Exception:
+    pass
+
 BUFFER_MCP_URL = "https://mcp.buffer.com/mcp"
+
+
+def _get_ssl_context() -> ssl.SSLContext:
+    """Return SSL context using certifi CA bundle if available (essential for macOS Python)."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        try:
+            return ssl.create_default_context()
+        except Exception:
+            return ssl._create_unverified_context()
 
 
 def _read_config() -> Dict[str, Any]:
@@ -100,7 +120,7 @@ def _call_mcp_tool(tool_name: str, arguments: Optional[Dict[str, Any]] = None) -
     req = urllib.request.Request(BUFFER_MCP_URL, data=req_bytes, headers=headers, method="POST")
 
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30, context=_get_ssl_context()) as resp:
             resp_body = resp.read().decode("utf-8")
             data = json.loads(resp_body)
     except urllib.error.HTTPError as exc:
