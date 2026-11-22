@@ -17,6 +17,7 @@ env/
 *.bin
 .cache/
 
-# Runtime logs
+# Runtime logs and configs
 *.log
 .DS_Store
+clipforge_config.json

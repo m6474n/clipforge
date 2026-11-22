@@ -1,25 +1,29 @@
-"""Buffer.com integration service for scheduling and posting social clips.
+"""Buffer.com integration service using Buffer's official Remote MCP Server.
 
-Connects to the Buffer Publish API (https://api.bufferapp.com/1/) to retrieve
-connected social profiles (TikTok, Instagram Reels, YouTube Shorts, X/Twitter, etc.)
-and post/schedule video updates.
+Buffer Official MCP Endpoint: https://mcp.buffer.com/mcp
+Tools used:
+- get_account: Retrieves authenticated user info and organization ID
+- list_channels: Retrieves all connected channels (TikTok, Instagram, YouTube, X, etc.)
+- create_post: Schedules or immediately publishes videos and updates to channels
+- list_posts: Inspects upcoming posts and drafts
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
+import urllib.error
 import urllib.parse
 import urllib.request
-import urllib.error
 
 from .paths import CONFIG_FILE
 
 logger = logging.getLogger("app.buffer")
 
-BUFFER_API_BASE = "https://api.bufferapp.com/1"
+BUFFER_MCP_URL = "https://mcp.buffer.com/mcp"
 
 
 def _read_config() -> Dict[str, Any]:
@@ -69,52 +73,74 @@ def set_public_base_url(url: str) -> None:
     _save_config({"buffer_public_base_url": (url or "").strip().rstrip("/")})
 
 
-def _make_request(endpoint: str, method: str = "GET", data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def _call_mcp_tool(tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Any:
+    """Call an MCP tool on Buffer's official HTTP MCP server."""
     token = get_access_token()
     if not token:
         raise ValueError("Buffer access token is not configured. Please add it in Settings.")
 
-    url = f"{BUFFER_API_BASE}/{endpoint.lstrip('/')}"
-    headers = {
-        "User-Agent": "ClipForge/1.0",
-        "Authorization": f"Bearer {token}",
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": tool_name,
+            "arguments": arguments or {},
+        },
     }
 
-    req_data = None
-    if method == "POST":
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
-        if data:
-            # Handle array query params (e.g. profile_ids[])
-            encoded_pairs = []
-            for k, v in data.items():
-                if isinstance(v, (list, tuple)):
-                    for item in v:
-                        encoded_pairs.append((f"{k}[]" if not k.endswith("[]") else k, str(item)))
-                elif v is not None:
-                    encoded_pairs.append((k, str(v) if not isinstance(v, bool) else ("1" if v else "0")))
-            req_data = urllib.parse.urlencode(encoded_pairs).encode("utf-8")
-    else:
-        # GET request with token query param fallback
-        sep = "&" if "?" in url else "?"
-        url = f"{url}{sep}access_token={urllib.parse.quote(token)}"
+    req_bytes = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+        "User-Agent": "ClipForge/1.0",
+    }
 
-    req = urllib.request.Request(url, data=req_data, headers=headers, method=method)
+    req = urllib.request.Request(BUFFER_MCP_URL, data=req_bytes, headers=headers, method="POST")
+
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            resp_body = resp.read().decode("utf-8")
+            data = json.loads(resp_body)
     except urllib.error.HTTPError as exc:
         err_body = exc.read().decode("utf-8", errors="ignore")
-        logger.error("Buffer HTTP error %d: %s", exc.code, err_body)
+        logger.error("Buffer MCP HTTP error %d: %s", exc.code, err_body)
         try:
             err_json = json.loads(err_body)
-            msg = err_json.get("message") or err_json.get("error") or str(exc)
+            msg = err_json.get("error", {}).get("message") or err_json.get("message") or str(exc)
         except Exception:
-            msg = f"Buffer API error: HTTP {exc.code} - {err_body[:200]}"
+            msg = f"Buffer MCP HTTP {exc.code}: {err_body[:200]}"
         raise RuntimeError(msg) from exc
     except Exception as exc:
-        logger.error("Buffer connection error: %s", exc)
-        raise RuntimeError(f"Buffer connection failed: {exc}") from exc
+        logger.error("Buffer MCP connection error: %s", exc)
+        raise RuntimeError(f"Buffer MCP connection failed: {exc}") from exc
+
+    if "error" in data:
+        err_msg = data["error"].get("message", "Unknown error")
+        raise RuntimeError(f"Buffer MCP error: {err_msg}")
+
+    result = data.get("result", {})
+    if result.get("isError"):
+        content_items = result.get("content", [])
+        err_text = " ".join(item.get("text", "") for item in content_items if isinstance(item, dict))
+        raise RuntimeError(f"Buffer MCP tool error: {err_text or 'Command failed'}")
+
+    # Tool returns content array with text blocks
+    content_list = result.get("content", [])
+    if not content_list:
+        return {}
+
+    first_text = content_list[0].get("text", "")
+    try:
+        return json.loads(first_text)
+    except Exception:
+        return first_text
+
+
+def get_account_info() -> Dict[str, Any]:
+    """Retrieve authenticated user and organization information via Buffer MCP."""
+    return _call_mcp_tool("get_account")
 
 
 def test_connection() -> Dict[str, Any]:
@@ -123,15 +149,19 @@ def test_connection() -> Dict[str, Any]:
     if not token:
         return {"configured": False, "ok": False, "message": "No Buffer access token configured"}
     try:
-        user = _make_request("user.json")
+        acc = get_account_info()
+        orgs = acc.get("organizations", [])
+        primary_org = orgs[0] if orgs else {}
         return {
             "configured": True,
             "ok": True,
             "user": {
-                "id": user.get("id"),
-                "name": user.get("name"),
-                "email": user.get("email"),
-                "plan": user.get("plan"),
+                "id": acc.get("id"),
+                "name": acc.get("name"),
+                "email": acc.get("email"),
+                "timezone": acc.get("timezone"),
+                "organization_id": primary_org.get("id"),
+                "organization_name": primary_org.get("name"),
             },
         }
     except Exception as exc:
@@ -139,24 +169,34 @@ def test_connection() -> Dict[str, Any]:
 
 
 def get_profiles() -> List[Dict[str, Any]]:
-    """Return list of connected social profiles from Buffer."""
-    raw = _make_request("profiles.json")
-    if not isinstance(raw, list):
+    """Return list of connected social profiles (channels) from Buffer."""
+    acc = get_account_info()
+    orgs = acc.get("organizations", [])
+    if not orgs:
         return []
-    profiles = []
-    for p in raw:
-        if not isinstance(p, dict):
+    org_id = orgs[0].get("id")
+    if not org_id:
+        return []
+
+    channels = _call_mcp_tool("list_channels", {"organizationId": org_id})
+    if not isinstance(channels, list):
+        return []
+
+    profiles: List[Dict[str, Any]] = []
+    for ch in channels:
+        if not isinstance(ch, dict):
             continue
-        service = p.get("service", "unknown").lower()
+        service = (ch.get("service") or "unknown").lower()
         profiles.append({
-            "id": p.get("id"),
+            "id": ch.get("id"),
             "service": service,
-            "username": p.get("formatted_username") or p.get("service_username") or p.get("service"),
-            "avatar": p.get("avatar") or p.get("avatar_https"),
-            "service_type": p.get("service_type"),
-            "default": bool(p.get("default", False)),
-            "schedules": p.get("schedules", []),
-            "timezone": p.get("timezone"),
+            "username": ch.get("displayName") or ch.get("name") or service,
+            "name": ch.get("name"),
+            "avatar": ch.get("avatar"),
+            "service_type": ch.get("type"),
+            "default": False,
+            "isDisconnected": bool(ch.get("isDisconnected", False)),
+            "isLocked": bool(ch.get("isLocked", False)),
         })
     return profiles
 
@@ -172,7 +212,7 @@ def schedule_post(
     """Schedule or immediately publish an update across one or more Buffer profiles.
 
     Args:
-        profile_ids: List of Buffer profile IDs to publish to.
+        profile_ids: List of Buffer channel IDs to publish to.
         text: Caption / post body text.
         media_url: Direct accessible URL to the video file.
         scheduled_at: Optional Unix epoch timestamp to schedule.
@@ -184,27 +224,90 @@ def schedule_post(
     if not text.strip() and not media_url:
         raise ValueError("Either caption text or a media URL is required.")
 
-    payload: Dict[str, Any] = {
-        "profile_ids": profile_ids,
-        "text": text.strip(),
-        "shorten": "false",
-    }
+    # Fetch channels map to detect service types for platform-specific metadata
+    profiles = get_profiles()
+    channel_map = {p["id"]: p for p in profiles}
 
+    # Determine mode & dueAt
     if now:
-        payload["now"] = "1"
+        mode = "shareNow"
+        due_at = None
     elif scheduled_at and scheduled_at > 0:
-        payload["scheduled_at"] = str(scheduled_at)
+        mode = "customScheduled"
+        # Convert unix timestamp to ISO 8601 UTC
+        due_at = datetime.fromtimestamp(scheduled_at, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        mode = "addToQueue"
+        due_at = None
 
-    if media_url:
-        payload["media[video]"] = media_url.strip()
-        if title:
-            payload["media[title]"] = title.strip()
+    results = []
+    errors = []
 
-    res = _make_request("updates/create.json", method="POST", data=payload)
-    return res
+    for cid in profile_ids:
+        ch = channel_map.get(cid, {})
+        service = ch.get("service", "").lower()
+
+        args: Dict[str, Any] = {
+            "channelId": cid,
+            "schedulingType": "automatic",
+            "mode": mode,
+            "text": text.strip(),
+        }
+
+        if due_at:
+            args["dueAt"] = due_at
+
+        if media_url:
+            args["assets"] = [{"video": {"url": media_url.strip()}}]
+
+        # Platform specific metadata
+        clean_title = (title or text.strip()[:95] or "Short").strip()
+        metadata: Dict[str, Any] = {}
+
+        if service == "instagram":
+            metadata["instagram"] = {"type": "reel"}
+        elif service == "youtube":
+            metadata["youtube"] = {
+                "title": clean_title,
+                "categoryId": "22",  # People & Blogs default
+            }
+        elif service == "tiktok":
+            metadata["tiktok"] = {
+                "title": clean_title,
+            }
+
+        if metadata:
+            args["metadata"] = metadata
+
+        try:
+            res = _call_mcp_tool("create_post", args)
+            results.append({"channelId": cid, "service": service, "status": "ok", "post": res})
+        except Exception as exc:
+            logger.error("Failed to post to channel %s (%s): %s", cid, service, exc)
+            errors.append({"channelId": cid, "service": service, "error": str(exc)})
+
+    if not results and errors:
+        raise RuntimeError(f"Buffer posting failed: {errors[0]['error']}")
+
+    return {
+        "success": len(results) > 0,
+        "mode": mode,
+        "results": results,
+        "errors": errors,
+    }
 
 
 def get_pending_updates(profile_id: str) -> List[Dict[str, Any]]:
-    """Return pending scheduled updates for a specific profile."""
-    res = _make_request(f"profiles/{urllib.parse.quote(profile_id)}/updates/pending.json")
-    return res.get("updates", [])
+    """Return pending scheduled updates for a specific channel."""
+    acc = get_account_info()
+    orgs = acc.get("organizations", [])
+    if not orgs:
+        return []
+    org_id = orgs[0].get("id")
+
+    res = _call_mcp_tool("list_posts", {
+        "organizationId": org_id,
+        "channelIds": [profile_id],
+        "status": ["scheduled", "draft"],
+    })
+    return res if isinstance(res, list) else []
