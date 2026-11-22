@@ -313,10 +313,11 @@ def _run_pipeline(job: Job) -> None:
                     snap = running.snapshot()
                     if snap.get("status") != "running":
                         break
+                    prog = snap.get("progress", 0.0)
+                    detail = snap.get("message") or f"Transcribing... {int(prog * 100)}%"
                     job.set_stage(
-                        "transcribing", snap.get("progress", 0.0),
-                        f"Transcribing audio with local Whisper ({device_label})... "
-                        f"{int((snap.get('progress') or 0) * 100)}%",
+                        "transcribing", prog,
+                        f"Transcribing ({device_label}): {detail}",
                     )
                     time.sleep(0.4)
             else:

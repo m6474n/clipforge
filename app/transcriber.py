@@ -646,6 +646,18 @@ def _normalize_language(language: Optional[str]) -> Optional[str]:
     return lang
 
 
+def _format_dur(sec: float) -> str:
+    if sec < 60:
+        return f"{int(sec)}s"
+    m = int(sec // 60)
+    s = int(sec % 60)
+    if m < 60:
+        return f"{m}m {s:02d}s"
+    h = int(m // 60)
+    m = int(m % 60)
+    return f"{h}h {m:02d}m"
+
+
 def transcribe_video(
     video_path: Path,
     clip_id: str,
@@ -699,7 +711,8 @@ def transcribe_video(
             seg_text = (seg.text or "").strip()
             if progress and total_dur > 0:
                 frac = min(0.99, float(seg.end) / total_dur)
-                progress(frac, f"Transcribing... {int(frac * 100)}%")
+                pct_str = f"{frac * 100:.1f}%" if total_dur > 1800 else f"{int(frac * 100)}%"
+                progress(frac, f"Transcribing... {pct_str} ({_format_dur(seg.end)} / {_format_dur(total_dur)})")
             segments.append(
                 {
                     "id": seg.id,
