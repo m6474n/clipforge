@@ -11,6 +11,7 @@ outside the downloads directory (no path traversal).
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import logging
 import re
@@ -54,6 +55,26 @@ def save_upload(filename: str, fileobj: BinaryIO) -> dict:
             f"file ({', '.join(sorted(ALLOWED_EXTS))})."
         )
 
+    # Clean up any stale partial uploads or leftovers older than 10 mins
+    try:
+        for stale in DOWNLOADS_DIR.glob("tmp_*"):
+            if stale.is_file():
+                stale.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+    # Check available disk space
+    try:
+        _, _, free_bytes = shutil.disk_usage(DOWNLOADS_DIR)
+        if free_bytes < 500 * 1024 * 1024:  # under 500MB free
+            free_gb = free_bytes / (1024 ** 3)
+            raise InvalidVideoURLError(
+                f"Disk is full ({free_gb:.1f} GB available). Please free up disk space on your drive "
+                f"or clear old clips/downloads before uploading."
+            )
+    except OSError:
+        pass
+
     # Stream to a temporary file while computing sha256 for deterministic caching
     temp_id = uuid.uuid4().hex
     temp_dest = DOWNLOADS_DIR / f"tmp_{temp_id}{ext}"
@@ -69,6 +90,15 @@ def save_upload(filename: str, fileobj: BinaryIO) -> dict:
                 out.write(chunk)
     except OSError as exc:
         temp_dest.unlink(missing_ok=True)
+        if exc.errno == errno.ENOSPC or getattr(exc, "errno", None) == 28:
+            _, _, free_bytes = shutil.disk_usage(DOWNLOADS_DIR)
+            free_gb = free_bytes / (1024 ** 3)
+            logger.error("Disk full error while saving upload %s (only %.2f GB free)", filename, free_gb)
+            raise InvalidVideoURLError(
+                f"Disk space is full ([Errno 28] No space left on device). "
+                f"Your drive only has {free_gb:.1f} GB available, which is not enough for this file. "
+                f"Please free up disk space on your computer (e.g. empty Trash, delete old clips or downloads) and try again."
+            ) from exc
         logger.exception("Failed to save upload %s", filename)
         raise InvalidVideoURLError(f"Could not save the uploaded file: {exc}") from exc
 
