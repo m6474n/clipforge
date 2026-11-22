@@ -469,7 +469,10 @@ export default function Create({ step, setStep }) {
           try { sessionStorage.removeItem("cf-active-job-id"); } catch {}
           closeRef.current && closeRef.current();
         }
-      }, () => { setBusy(false); });
+      }, () => {
+        setBusy(false);
+        try { sessionStorage.removeItem("cf-active-job-id"); } catch {}
+      });
     }
   }, []);
 
