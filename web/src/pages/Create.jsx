@@ -3,6 +3,7 @@ import { api, streamProgress } from "../api.js";
 import { parseEmbed, cineActive } from "../caption.js";
 import { useStudio } from "../useStudio.js";
 import { usePrep } from "../usePrep.js";
+import { Icons } from "../components/Icons.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import ReframeEditor from "../components/ReframeEditor.jsx";
 import Screen1Input from "./create/Screen1Input.jsx";
