@@ -3,6 +3,7 @@ import { api, streamProgress } from "../api.js";
 import { parseEmbed, cineActive } from "../caption.js";
 import { useStudio } from "../useStudio.js";
 import { usePrep } from "../usePrep.js";
+import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import ReframeEditor from "../components/ReframeEditor.jsx";
 import Screen1Input from "./create/Screen1Input.jsx";
 import Screen2Settings from "./create/Screen2Settings.jsx";
@@ -308,7 +309,12 @@ export default function Create({ step, setStep }) {
   }, [srcId, language, prep.prep?.phase]);
 
   useEffect(() => {
-    if (!srcId) { setTranscript({ ready: false, loading: false, segments: [], duration: null }); return; }
+    if (!srcId) {
+      setTranscript((prev) => (prev.ready && prev.segments?.length > 0 ? prev : { ready: false, loading: false, segments: [], duration: null }));
+      return;
+    }
+    // Don't re-poll if transcript is already loaded from cached draft
+    if (transcript.ready && transcript.segments?.length > 0) return;
     let alive = true;
     setTranscript((t) => ({ ...t, loading: true }));
     api.transcript(srcId, language === "auto" ? null : language)
@@ -530,50 +536,93 @@ export default function Create({ step, setStep }) {
 
   const resumeDraft = () => {
     if (!savedDraft) return;
-    setSource(savedDraft.source || "url");
-    setUrl(savedDraft.url || "");
-    if (savedDraft.upload) {
-      setUpload(savedDraft.upload);
-    }
-    if (savedDraft.aspect) setAspect(savedDraft.aspect);
-    if (savedDraft.fit) setFit(savedDraft.fit);
-    if (savedDraft.squareCorners) setSquareCorners(savedDraft.squareCorners);
-    if (savedDraft.barText !== undefined) setBarText(savedDraft.barText);
-    if (savedDraft.barTextColor) setBarTextColor(savedDraft.barTextColor);
-    if (savedDraft.barTextAnim) setBarTextAnim(savedDraft.barTextAnim);
-    if (savedDraft.numClips) setNumClips(savedDraft.numClips);
-    if (savedDraft.clipLen !== undefined) setClipLen(savedDraft.clipLen);
-    if (savedDraft.language) setLanguage(savedDraft.language);
-    if (savedDraft.device) setDevice(savedDraft.device);
-    if (savedDraft.signature) setSignature(savedDraft.signature);
-    if (savedDraft.framing) setFraming(savedDraft.framing);
-    if (savedDraft.textOverlay) setTextOverlay(savedDraft.textOverlay);
-    if (savedDraft.templateConfig) setTemplateConfig(savedDraft.templateConfig);
-    if (savedDraft.musicTrack !== undefined) setMusicTrack(savedDraft.musicTrack);
-    if (savedDraft.musicVolume !== undefined) setMusicVolume(savedDraft.musicVolume);
-    if (savedDraft.musicDuck !== undefined) setMusicDuck(savedDraft.musicDuck);
-    if (savedDraft.musicStart !== undefined) setMusicStart(savedDraft.musicStart);
+    try {
+      setSource(savedDraft.source || "url");
+      setUrl(savedDraft.url || "");
+      if (savedDraft.upload) {
+        setUpload(savedDraft.upload);
+      }
+      if (savedDraft.aspect) setAspect(savedDraft.aspect);
+      if (savedDraft.fit) setFit(savedDraft.fit);
+      if (savedDraft.squareCorners) setSquareCorners(savedDraft.squareCorners);
+      if (savedDraft.barText !== undefined) setBarText(savedDraft.barText);
+      if (savedDraft.barTextColor) setBarTextColor(savedDraft.barTextColor);
+      if (savedDraft.barTextAnim) setBarTextAnim(savedDraft.barTextAnim);
+      if (savedDraft.numClips) setNumClips(Number(savedDraft.numClips) || 3);
+      if (savedDraft.clipLen !== undefined) setClipLen(savedDraft.clipLen);
+      if (savedDraft.language) setLanguage(savedDraft.language);
+      if (savedDraft.device) setDevice(savedDraft.device);
+      if (savedDraft.signature) {
+        setSignature({
+          enabled: !!savedDraft.signature.enabled,
+          text: savedDraft.signature.text || "@mosen_here",
+          pos_x: Number(savedDraft.signature.pos_x) ?? 50,
+          pos_y: Number(savedDraft.signature.pos_y) ?? 92,
+          size: Number(savedDraft.signature.size) ?? 34,
+          color: savedDraft.signature.color || "#FFFFFF",
+          opacity: Number(savedDraft.signature.opacity) ?? 75,
+        });
+      }
+      if (savedDraft.framing) {
+        const fMode = ["solo", "duo", "triple", "quad"].includes(savedDraft.framing.mode) ? savedDraft.framing.mode : "solo";
+        const fSplit = Number(savedDraft.framing.split_pct) || 50;
+        const fFrames = Array.isArray(savedDraft.framing.frames) && savedDraft.framing.frames.length > 0
+          ? savedDraft.framing.frames.map((fr) => ({
+              x: Number(fr?.x) || 0,
+              y: Number(fr?.y) || 0,
+              width: Number(fr?.width) || 100,
+              height: Number(fr?.height) || 100,
+              aspect_ratio: fr?.aspect_ratio || "9:16",
+            }))
+          : [{ x: 25, y: 10, width: 50, height: 80, aspect_ratio: "9:16" }];
+        setFraming({ mode: fMode, split_pct: fSplit, frames: fFrames });
+      }
+      if (savedDraft.textOverlay) {
+        setTextOverlay((prev) => ({
+          ...prev,
+          ...savedDraft.textOverlay,
+          enabled: !!savedDraft.textOverlay.enabled,
+        }));
+      }
+      if (savedDraft.templateConfig) {
+        setTemplateConfig((prev) => ({
+          ...prev,
+          ...savedDraft.templateConfig,
+          preset: savedDraft.templateConfig.preset || "none",
+        }));
+      }
+      if (savedDraft.musicTrack !== undefined) setMusicTrack(savedDraft.musicTrack);
+      if (savedDraft.musicVolume !== undefined) setMusicVolume(savedDraft.musicVolume);
+      if (savedDraft.musicDuck !== undefined) setMusicDuck(savedDraft.musicDuck);
+      if (savedDraft.musicStart !== undefined) setMusicStart(savedDraft.musicStart);
 
-    if (savedDraft.captionPreset) {
-      studio.loadCaptionConfig(savedDraft.captionPreset, savedDraft.captionOverrides, savedDraft.cinematic);
-    }
+      if (savedDraft.captionPreset) {
+        studio.loadCaptionConfig(savedDraft.captionPreset, savedDraft.captionOverrides, savedDraft.cinematic);
+      }
 
-    if (savedDraft.transcriptSegments && savedDraft.transcriptSegments.length) {
-      setTranscript({
-        ready: true,
-        loading: false,
-        segments: savedDraft.transcriptSegments,
-        duration: savedDraft.transcriptDuration || null,
-      });
-    }
+      const hasCachedCaptions = Array.isArray(savedDraft.transcriptSegments) && savedDraft.transcriptSegments.length > 0;
+      if (hasCachedCaptions) {
+        setTranscript({
+          ready: true,
+          loading: false,
+          segments: savedDraft.transcriptSegments,
+          duration: savedDraft.transcriptDuration || null,
+        });
+      }
 
-    const targetStep = Math.max(2, savedDraft.step || 2);
-    setStep(targetStep);
+      // Always resume in Step 2 (Clip Studio & Layout) so framing & template load cleanly!
+      const rawStep = Number(savedDraft.step);
+      const targetStep = (Number.isFinite(rawStep) && rawStep >= 2 && rawStep <= 3) ? rawStep : 2;
+      setStep(targetStep);
 
-    if (savedDraft.source === "url" && savedDraft.url) {
-      prep.startUrl(savedDraft.url);
-    } else if (savedDraft.upload?.upload_id) {
-      prep.startUpload(savedDraft.upload.upload_id);
+      if (savedDraft.source === "url" && savedDraft.url) {
+        prep.startUrl(savedDraft.url, hasCachedCaptions);
+      } else if (savedDraft.upload?.upload_id) {
+        prep.startUpload(savedDraft.upload.upload_id, hasCachedCaptions);
+      }
+    } catch (err) {
+      console.error("Failed to resume project draft cleanly:", err);
+      setStep(2);
     }
   };
 
@@ -631,87 +680,89 @@ export default function Create({ step, setStep }) {
 
   return (
     <>
-      {step === 1 && (
-        <Screen1Input
-          source={source} setSource={setSource} url={url} setUrl={setUrl}
-          upload={upload} upPct={upPct} drag={drag} setDrag={setDrag} fileRef={fileRef}
-          doUpload={doUpload} onClear={() => doUpload(null)} sourceReady={sourceReady} error={error}
-          templates={templates} activeTemplateId={activeTemplateId} onApplyTemplate={applyTemplate}
-          savedDraft={savedDraft} onResumeDraft={resumeDraft} onClearDraft={clearDraft}
-          onContinue={() => { startPrep(); setStep(2); }}
-        />
-      )}
+      <ErrorBoundary onReset={() => setStep(2)} onClear={clearDraft}>
+        {step === 1 && (
+          <Screen1Input
+            source={source} setSource={setSource} url={url} setUrl={setUrl}
+            upload={upload} upPct={upPct} drag={drag} setDrag={setDrag} fileRef={fileRef}
+            doUpload={doUpload} onClear={() => doUpload(null)} sourceReady={sourceReady} error={error}
+            templates={templates} activeTemplateId={activeTemplateId} onApplyTemplate={applyTemplate}
+            savedDraft={savedDraft} onResumeDraft={resumeDraft} onClearDraft={clearDraft}
+            onContinue={() => { startPrep(); setStep(2); }}
+          />
+        )}
 
-      {step === 2 && (
-        <Screen2Settings
-          media={media} sourceReady={sourceReady} prepView={prepView}
-          outputAspect={outputAspect} setOutputAspect={setOutputAspect}
-          squareCorners={squareCorners} setSquareCorners={setSquareCorners}
-          barText={barText} setBarText={setBarText} barTextColor={barTextColor} setBarTextColor={setBarTextColor}
-          barTextAnim={barTextAnim} setBarTextAnim={setBarTextAnim}
-          language={language} changeLanguage={changeLanguage}
-          device={device} setDevice={setDevice} devices={devices}
-          numClips={numClips} setNumClips={setNumClips} clipLen={clipLen} setClipLen={setClipLen}
-          duration={vidDuration || transcript.duration || (prepView && prepView.duration)}
-          framing={framing} setFraming={setFraming}
-          textOverlay={textOverlay} setTextOverlay={setTextOverlay}
-          templateConfig={templateConfig} setTemplateConfig={setTemplateConfig}
-          studio={studio} fonts={fonts} aspect={aspect} fit={fit} signature={signature} setSig={setSig} videoRef={videoRef}
-          templates={templates} activeTemplateId={activeTemplateId}
-          onApplyTemplate={applyTemplate} onSaveTemplate={saveNewTemplate} onDeleteTemplate={deleteTemplate}
-          onBack={() => setStep(1)}
-          onNext={() => setStep(3)}
-          nextEnabled={!["downloading", "idle"].includes(prepView.phase)}
-        />
-      )}
+        {step === 2 && (
+          <Screen2Settings
+            media={media} sourceReady={sourceReady} prepView={prepView}
+            outputAspect={outputAspect} setOutputAspect={setOutputAspect}
+            squareCorners={squareCorners} setSquareCorners={setSquareCorners}
+            barText={barText} setBarText={setBarText} barTextColor={barTextColor} setBarTextColor={setBarTextColor}
+            barTextAnim={barTextAnim} setBarTextAnim={setBarTextAnim}
+            language={language} changeLanguage={changeLanguage}
+            device={device} setDevice={setDevice} devices={devices}
+            numClips={numClips} setNumClips={setNumClips} clipLen={clipLen} setClipLen={setClipLen}
+            duration={vidDuration || transcript.duration || (prepView && prepView.duration)}
+            framing={framing} setFraming={setFraming}
+            textOverlay={textOverlay} setTextOverlay={setTextOverlay}
+            templateConfig={templateConfig} setTemplateConfig={setTemplateConfig}
+            studio={studio} fonts={fonts} aspect={aspect} fit={fit} signature={signature} setSig={setSig} videoRef={videoRef}
+            templates={templates} activeTemplateId={activeTemplateId}
+            onApplyTemplate={applyTemplate} onSaveTemplate={saveNewTemplate} onDeleteTemplate={deleteTemplate}
+            onBack={() => setStep(1)}
+            onNext={() => setStep(3)}
+            nextEnabled={!["downloading", "idle"].includes(prepView.phase)}
+          />
+        )}
 
-      {step === 3 && (
-        <Screen3Captions
-          studio={studio} language={language} onFontUpload={onFontUpload}
-          media={media} prepView={prepView} sourceReady={sourceReady}
-          transcript={transcript} curTime={curTime} seekTo={seekTo} videoRef={videoRef} duration={vidDuration}
-          aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
-          signature={signature} setSig={setSig}
-          framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
-          onBack={() => setStep(2)} onNext={() => setStep(4)}
-        />
-      )}
+        {step === 3 && (
+          <Screen3Captions
+            studio={studio} language={language} onFontUpload={onFontUpload}
+            media={media} prepView={prepView} sourceReady={sourceReady}
+            transcript={transcript} curTime={curTime} seekTo={seekTo} videoRef={videoRef} duration={vidDuration}
+            aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+            signature={signature} setSig={setSig}
+            framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
+            onBack={() => setStep(2)} onNext={() => setStep(4)}
+          />
+        )}
 
-      {step === 4 && (
-        <Screen4Effects
-          studio={studio} language={language} media={media} sourceReady={sourceReady}
-          aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
-          signature={signature} setSig={setSig} videoRef={videoRef}
-          framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
-          onBack={() => setStep(3)} onNext={() => setStep(5)}
-        />
-      )}
+        {step === 4 && (
+          <Screen4Effects
+            studio={studio} language={language} media={media} sourceReady={sourceReady}
+            aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+            signature={signature} setSig={setSig} videoRef={videoRef}
+            framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
+            onBack={() => setStep(3)} onNext={() => setStep(5)}
+          />
+        )}
 
-      {step === 5 && (
-        <Screen5Music
-          tracks={tracks} musicTrack={musicTrack} musicVolume={musicVolume} musicDuck={musicDuck}
-          musicStart={musicStart} musicSuggest={musicSuggest}
-          onTrack={(t) => { setMusicTrack(t); setMusicStart(0); }} onVolume={setMusicVolume} onDuck={setMusicDuck} onStart={setMusicStart}
-          onMusicUpload={onMusicUpload} onRefreshMusic={refreshMusic}
-          studio={studio} language={language} media={media} sourceReady={sourceReady}
-          aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
-          signature={signature} setSig={setSig} videoRef={videoRef}
-          framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
-          onBack={() => setStep(4)} onNext={() => setStep(6)}
-        />
-      )}
+        {step === 5 && (
+          <Screen5Music
+            tracks={tracks} musicTrack={musicTrack} musicVolume={musicVolume} musicDuck={musicDuck}
+            musicStart={musicStart} musicSuggest={musicSuggest}
+            onTrack={(t) => { setMusicTrack(t); setMusicStart(0); }} onVolume={setMusicVolume} onDuck={setMusicDuck} onStart={setMusicStart}
+            onMusicUpload={onMusicUpload} onRefreshMusic={refreshMusic}
+            studio={studio} language={language} media={media} sourceReady={sourceReady}
+            aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+            signature={signature} setSig={setSig} videoRef={videoRef}
+            framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
+            onBack={() => setStep(4)} onNext={() => setStep(6)}
+          />
+        )}
 
-      {step === 6 && (
-        <Screen6Review
-          busy={busy} snap={snap} clips={clips} error={error}
-          onCancel={cancelGenerate} onOpenReframe={openReframe}
-          onBack={() => setStep(5)} onNext={() => setStep(7)}
-        />
-      )}
+        {step === 6 && (
+          <Screen6Review
+            busy={busy} snap={snap} clips={clips} error={error}
+            onCancel={cancelGenerate} onOpenReframe={openReframe}
+            onBack={() => setStep(5)} onNext={() => setStep(7)}
+          />
+        )}
 
-      {step === 7 && (
-        <Screen7Export clips={clips} onBack={() => setStep(6)} onRestart={restart} />
-      )}
+        {step === 7 && (
+          <Screen7Export clips={clips} onBack={() => setStep(6)} onRestart={restart} />
+        )}
+      </ErrorBoundary>
 
       {showTranscriptPrompt && (
         <div className="transcript-prompt-overlay" onClick={() => setShowTranscriptPrompt(false)}>

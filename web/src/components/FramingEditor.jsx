@@ -123,9 +123,10 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
   };
 
   const mode = framing?.mode || "solo";
-  const frames = framing?.frames && framing.frames.length > 0 ? framing.frames : defaultFramesFor("solo", "9:16");
+  const rawFrames = Array.isArray(framing?.frames) ? framing.frames.filter(Boolean) : [];
+  const frames = rawFrames.length > 0 ? rawFrames : defaultFramesFor(mode, "9:16");
   const activeFrame = frames[activeFrameIdx] || frames[0] || { x: 25, y: 10, width: 50, height: 80, aspect_ratio: "9:16" };
-  const currentRatioId = activeFrame.aspect_ratio || "9:16";
+  const currentRatioId = activeFrame?.aspect_ratio || "9:16";
 
   const handleModeChange = (newMode) => {
     const newFrames = defaultFramesFor(newMode, currentRatioId);
@@ -279,15 +280,15 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
               <label className="fieldlabel" style={{ margin: 0, fontSize: 12 }}>Vertical Split Distribution</label>
               <span className="ctl-hint" style={{ fontWeight: 700, color: "var(--accent)" }}>
-                Top: {Math.round(framing.split_pct ?? 50)}% · Bottom: {100 - Math.round(framing.split_pct ?? 50)}%
+                Top: {Math.round(framing?.split_pct ?? 50)}% · Bottom: {100 - Math.round(framing?.split_pct ?? 50)}%
               </span>
             </div>
             <input
               type="range"
               min="20"
               max="80"
-              value={framing.split_pct ?? 50}
-              onChange={(e) => setFraming({ ...framing, split_pct: +e.target.value })}
+              value={framing?.split_pct ?? 50}
+              onChange={(e) => setFraming({ ...(framing || {}), split_pct: +e.target.value })}
               className="range"
             />
           </div>
@@ -300,8 +301,8 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
               <button
                 key={lbl}
                 type="button"
-                className={`btn btn-xs ${(framing.split_pct ?? 50) === val ? "btn-primary" : "btn-ghost"}`}
-                onClick={() => setFraming({ ...framing, split_pct: val })}
+                className={`btn btn-xs ${(framing?.split_pct ?? 50) === val ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setFraming({ ...(framing || {}), split_pct: val })}
               >
                 {lbl}
               </button>
@@ -385,21 +386,22 @@ export default function FramingEditor({ media, framing, setFraming, videoRef }) 
 
         {/* Crop Boxes */}
         {frames.map((f, idx) => {
+          if (!f) return null;
           const isActive = idx === activeFrameIdx;
           return (
             <div
               key={idx}
               className={`crop-box-element ${isActive ? "is-active" : ""}`}
               style={{
-                left: `${f.x}%`,
-                top: `${f.y}%`,
-                width: `${f.width}%`,
-                height: `${f.height}%`,
+                left: `${f.x ?? 0}%`,
+                top: `${f.y ?? 0}%`,
+                width: `${f.width ?? 100}%`,
+                height: `${f.height ?? 100}%`,
               }}
               onMouseDown={(e) => startDrag(e, idx, "move")}
               onTouchStart={(e) => startDrag(e, idx, "move")}
             >
-              <div className="crop-box-badge">Frame {idx + 1} ({f.aspect_ratio})</div>
+              <div className="crop-box-badge">Frame {idx + 1} ({f.aspect_ratio || "9:16"})</div>
 
               {/* Resize Handles */}
               {isActive && (

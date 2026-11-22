@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { Icons } from "./components/Icons.jsx";
 import ModelOnboarding from "./components/ModelOnboarding.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Create from "./pages/Create.jsx";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
@@ -255,7 +256,9 @@ export default function App() {
             <span className="orb orb-5" />
           </div>
           <div style={{ display: page === "create" ? "contents" : "none" }}>
-            <Create step={step} setStep={setStep} />
+            <ErrorBoundary onReset={() => setStep(2)}>
+              <Create step={step} setStep={setStep} />
+            </ErrorBoundary>
           </div>
           {page === "library" && <Library />}
           {page === "settings" && <Settings />}

@@ -122,7 +122,7 @@ export default function SavedTemplatesManager({
 
       {/* Template Cards Grid */}
       <div className="stm-grid">
-        {templates.map((tpl) => {
+        {(Array.isArray(templates) ? templates : []).map((tpl) => {
           const isActive = activeTemplateId === tpl.id;
           const mode = tpl.framing?.mode || "solo";
           const split = tpl.framing?.split_pct || 50;
@@ -158,7 +158,7 @@ export default function SavedTemplatesManager({
                   📐 <b>{mode.toUpperCase()}</b> {mode === "duo" ? `(${split}/${100 - split})` : ""}
                 </span>
                 <span className="spec-badge">
-                  💬 <b>{capStyle.replace("_", " ")}</b> ({capY})
+                  💬 <b>{String(capStyle || "default").replace("_", " ")}</b> ({capY})
                 </span>
                 {tpl.text_overlay?.enabled && (
                   <span className="spec-badge">

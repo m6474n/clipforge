@@ -285,7 +285,7 @@ export default function PhonePreview({
   const videoScale = hasTemplate ? (tpl.video_scale || 100) / 100 : 1;
 
   // Multi-frame layout calculation
-  const framesList = framing?.frames && framing.frames.length > 0 ? framing.frames : [];
+  const framesList = Array.isArray(framing?.frames) ? framing.frames.filter(Boolean) : [];
   const isMultiFrame = (framing?.mode && framing.mode !== "solo") || framesList.length > 1;
   const layoutMode = framing?.mode && framing.mode !== "solo"
     ? framing.mode

@@ -10,7 +10,7 @@ const mb = (b) => (b / 1048576).toFixed(b >= 10485760 ? 0 : 1);
 export function usePrep(device, language, autoTranscribe = true) {
   const [prep, setPrep] = useState({ phase: "idle", message: "", pct: null });
   const [downloadId, setDownloadId] = useState(null);
-  const r = useRef({ pf: null, pt: null, sourceId: null, urlKey: null });
+  const r = useRef({ pf: null, pt: null, sourceId: null, urlKey: null, skipTranscribe: false });
   const autoTranscribeRef = useRef(autoTranscribe);
 
   useEffect(() => {
@@ -32,7 +32,9 @@ export function usePrep(device, language, autoTranscribe = true) {
       if (s.status === "done") {
         setDownloadId(s.download_id);
         r.current.sourceId = s.download_id;
-        if (autoTranscribeRef.current !== false) {
+        if (r.current.skipTranscribe) {
+          setPrep({ phase: "ready", message: "Ready — video loaded with cached captions", pct: 100 });
+        } else if (autoTranscribeRef.current !== false) {
           setPrep({ phase: "downloaded", message: "Downloaded — preparing transcript…", pct: 100 });
           startTranscribe(s.download_id, lang());
         } else {
@@ -72,16 +74,20 @@ export function usePrep(device, language, autoTranscribe = true) {
     } catch {}
   }
 
-  function startUrl(url) {
+  function startUrl(url, skipTranscribe = false) {
     if (!url) return;
+    r.current.skipTranscribe = !!skipTranscribe;
     if (r.current.urlKey === url) return; // already started/preparing this URL
     reset(); r.current.urlKey = url;
+    r.current.skipTranscribe = !!skipTranscribe;
     setPrep({ phase: "downloading", message: "Starting download…", pct: null });
     api.prefetch(url).then((s) => {
       if (s.status === "done") {
         setDownloadId(s.download_id);
         r.current.sourceId = s.download_id;
-        if (autoTranscribeRef.current !== false) {
+        if (r.current.skipTranscribe) {
+          setPrep({ phase: "ready", message: "Ready — video loaded with cached captions", pct: 100 });
+        } else if (autoTranscribeRef.current !== false) {
           startTranscribe(s.download_id, lang());
         } else {
           setPrep({ phase: "ready", message: "Ready — video downloaded (auto-transcribe off)", pct: 100 });
@@ -94,11 +100,16 @@ export function usePrep(device, language, autoTranscribe = true) {
     });
   }
 
-  function startUpload(uploadId) {
+  function startUpload(uploadId, skipTranscribe = false) {
     if (!uploadId) return;
+    r.current.skipTranscribe = !!skipTranscribe;
     if (r.current.sourceId === uploadId) return; // already preparing this upload
     clear(); setDownloadId(null);
     r.current.sourceId = uploadId;
+    if (skipTranscribe) {
+      setPrep({ phase: "ready", message: "Ready — video loaded with cached captions", pct: 100 });
+      return;
+    }
     if (autoTranscribeRef.current !== false) {
       startTranscribe(uploadId, lang());
     } else {
