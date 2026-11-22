@@ -178,10 +178,9 @@ export default function Screen2Settings({
                     <div className="counter" style={{ width: "fit-content" }}>
                       <input
                         type="number"
-                        min="10"
-                        max="180"
+                        min="5"
                         value={clipLen}
-                        onChange={(e) => setClipLen(Math.max(10, Math.min(180, +e.target.value || 10)))}
+                        onChange={(e) => setClipLen(Math.max(5, +e.target.value || 5))}
                       />
                       <span style={{ padding: "0 10px", opacity: 0.7 }}>seconds</span>
                     </div>
@@ -214,11 +213,10 @@ export default function Screen2Settings({
                     <input
                       type="number"
                       min="1"
-                      max="50"
                       value={numClips}
-                      onChange={(e) => setNumClips(Math.max(1, Math.min(50, +e.target.value || 1)))}
+                      onChange={(e) => setNumClips(Math.max(1, +e.target.value || 1))}
                     />
-                    <button type="button" onClick={() => setNumClips((n) => Math.min(50, n + 1))}>+</button>
+                    <button type="button" onClick={() => setNumClips((n) => n + 1)}>+</button>
                   </div>
                 </div>
 

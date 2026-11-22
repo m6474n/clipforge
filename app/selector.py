@@ -364,8 +364,8 @@ def _fallback_even_split(
         clip_len = float(clip_length)
         n = max(1, min(num_clips, int(duration // clip_len) or 1))
     else:
-        n = max(1, min(num_clips, 10))
-        clip_len = min(MAX_CLIP_LEN, max(MIN_CLIP_LEN, duration / n))
+        n = max(1, min(num_clips, int(duration // MIN_CLIP_LEN) or 1))
+        clip_len = max(MIN_CLIP_LEN, duration / n)
     clips: List[dict] = []
     cursor = 0.0
     idx = 1

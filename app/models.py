@@ -344,12 +344,12 @@ class GenerateRequest(BaseModel):
         default="none", description="Square title entrance: 'none', 'fade', or 'slide'.",
     )
     num_clips: int = Field(
-        default=3, ge=1, le=100,
+        default=3, ge=1, le=1000,
         description="How many clips to generate. The selector returns at most as "
         "many non-overlapping windows as the transcript supports.",
     )
     clip_length: Optional[float] = Field(
-        default=None, ge=5, le=600,
+        default=None, ge=5, le=7200,
         description="Target length of each clip in SECONDS (e.g. 30, 45, 60, or a "
         "custom value). When set, each clip aims for this duration — finishing on "
         "a sentence boundary near it — instead of dividing the video evenly by "
