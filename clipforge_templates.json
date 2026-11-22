@@ -197,5 +197,104 @@
     "cinematic": {
       "color_grade": "vibrant"
     }
+  },
+  {
+    "id": "tpl_mwrcnxny",
+    "name": "IShowSpeed Template",
+    "description": "",
+    "is_default": false,
+    "framing": {
+      "mode": "duo",
+      "frames": [
+        {
+          "x": 0,
+          "y": 42.9,
+          "width": 20.2,
+          "height": 22.1,
+          "aspect_ratio": "custom"
+        },
+        {
+          "x": 19.8,
+          "y": 0,
+          "width": 57.8,
+          "height": 100,
+          "aspect_ratio": "9:16"
+        }
+      ],
+      "split_pct": 30
+    },
+    "caption": {
+      "preset": "alex_caps",
+      "pos_x": 50,
+      "pos_y": 89,
+      "overrides": {
+        "pos_x": 50,
+        "pos_y": 89
+      }
+    },
+    "text_overlay": {
+      "enabled": true,
+      "text": "Speed Beating GTA 6 (final mission) \ud83d\ude31",
+      "font_family": "Roboto-Bold",
+      "font_size": 63,
+      "text_color": "#000000",
+      "bg_color": "#ffffff",
+      "bg_opacity": 100,
+      "padding": 19,
+      "border_radius": 12,
+      "alignment": "center",
+      "pos_x": 50.7,
+      "pos_y": 31.3
+    },
+    "template_config": {
+      "preset": "none",
+      "avatar_url": null,
+      "display_name": "Alex Rivera",
+      "username": "alexrivera",
+      "verified": true,
+      "caption_text": "You won't believe what happened next\u2026",
+      "video_scale": 91,
+      "video_pos_y": 50,
+      "custom_banner_url": null
+    },
+    "output": {
+      "aspect": "9:16",
+      "fit": "crop",
+      "square_corners": "round",
+      "bar_text": "",
+      "bar_text_color": "#FFFFFF",
+      "bar_text_anim": "none"
+    },
+    "signature": {
+      "enabled": true,
+      "text": "@viceeshots",
+      "pos_x": 50,
+      "pos_y": 92,
+      "size": 41,
+      "color": "#FFFFFF",
+      "opacity": 75
+    },
+    "cinematic": {
+      "color_grade": "vibrant",
+      "bottom_gradient": true,
+      "bottom_gradient_height": 25,
+      "bottom_gradient_strength": 70,
+      "top_gradient": true,
+      "top_gradient_height": 6,
+      "top_gradient_strength": 60,
+      "vignette": false,
+      "vignette_strength": 50,
+      "glow": false,
+      "glow_strength": 50,
+      "grain": false,
+      "grain_strength": 40,
+      "letterbox": false,
+      "letterbox_size": 50,
+      "sharpen": false,
+      "sharpen_strength": 40,
+      "chroma_shift": false,
+      "chroma_shift_strength": 40
+    },
+    "updated_at": 1795322503.739711
   }
 ]
