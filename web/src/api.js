@@ -69,6 +69,7 @@ export const api = {
     if (!r.ok) throw new Error(d.detail || "Font upload failed.");
     return d; // { family, file }
   },
+  linkLocal: (filename, size, path) => jpost("/api/link-local", { filename, size, path }),
   upload: async (file, onProgress) =>
     new Promise((resolve, reject) => {
       const fd = new FormData();

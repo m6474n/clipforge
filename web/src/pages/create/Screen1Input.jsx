@@ -117,14 +117,16 @@ export default function Screen1Input({
 
           {fileChosen ? (
             <div className="cmd-file">
-              <span className="cmd-file-name">{uploading ? `Uploading… ${upPct}%` : `✓ ${upload?.filename}`}</span>
+              <span className="cmd-file-name">
+                {uploading ? `Uploading… ${upPct}%` : `✓ ${upload?.filename}${upload?.linked ? " (in-place · 0 duplicate space)" : ""}`}
+              </span>
               <button className="cmd-clear" onClick={onClear} title="Remove">✕</button>
             </div>
           ) : (
             <input
               className="cmd-input"
               type="text"
-              placeholder="Paste a YouTube or video link…"
+              placeholder="Paste a YouTube link or local video file path…"
               value={url}
               onChange={(e) => { setSource("url"); setUrl(e.target.value); }}
               onKeyDown={(e) => { if (e.key === "Enter" && sourceReady) onContinue(); }}

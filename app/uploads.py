@@ -14,11 +14,13 @@ from __future__ import annotations
 import errno
 import hashlib
 import logging
+import os
 import re
 import shutil
+import subprocess
 import uuid
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Optional
 
 from .models import InvalidVideoURLError
 from .paths import DOWNLOADS_DIR
@@ -138,3 +140,114 @@ def resolve_upload(upload_id: str) -> Path:
     # Prefer final video format (.mp4, .mkv, .webm, etc.) over intermediate files
     matches.sort(key=lambda p: (0 if p.suffix.lower() in {".mp4", ".mkv", ".mov", ".webm"} else 1, p.name))
     return matches[0]
+
+
+def find_local_video(filename: str, size: Optional[int] = None) -> Optional[Path]:
+    """Search common local locations for an existing video file to avoid copying it.
+
+    Checks adjacent downloader directories, user Downloads, Desktop, Movies,
+    Videos, Documents, and macOS Spotlight (mdfind).
+    """
+    if not filename:
+        return None
+
+    clean_name = Path(filename).name
+
+    # 1. Check Spotlight on macOS (instant global search across the disk)
+    if shutil.which("mdfind"):
+        try:
+            escaped = clean_name.replace('"', '\\"')
+            cmd = ["mdfind", f'kMDItemFSName == "{escaped}"']
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
+            for line in res.stdout.strip().splitlines():
+                p = Path(line.strip())
+                if p.is_file():
+                    if size is None or p.stat().st_size == size:
+                        return p.resolve()
+        except Exception as exc:
+            logger.debug("mdfind search error: %s", exc)
+
+    # 2. Check candidate directories
+    candidates = []
+    # Project & siblings
+    curr = Path.cwd().resolve()
+    for parent in [curr, curr.parent, curr.parent.parent]:
+        candidates.append(parent / clean_name)
+        for folder in ["youtube_video_downloader", "downloads", "Downloads", "videos", "Videos", "media"]:
+            candidates.append(parent / folder / clean_name)
+
+    # Standard User folders
+    home = Path.home()
+    for folder in ["Downloads", "Desktop", "Movies", "Videos", "Documents"]:
+        candidates.append(home / folder / clean_name)
+        if folder in ("Documents", "Downloads"):
+            for sub in ["python/youtube_video_downloader", "youtube_video_downloader"]:
+                candidates.append(home / folder / sub / clean_name)
+
+    for c in candidates:
+        try:
+            exp = c.expanduser().resolve()
+            if exp.is_file():
+                if size is None or exp.stat().st_size == size:
+                    return exp
+        except Exception:
+            continue
+
+    return None
+
+
+def register_local_file(file_path: str | Path) -> dict:
+    """Create a zero-copy reference (symlink) to an existing file on disk.
+
+    This avoids copying gigabytes of video into downloads/, preventing disk exhaustion
+    and saving processing time.
+    """
+    p = Path(file_path).expanduser().resolve()
+    if not p.is_file():
+        raise InvalidVideoURLError(f"Local file does not exist: {p}")
+
+    ext = p.suffix.lower()
+    if ext not in ALLOWED_EXTS:
+        raise InvalidVideoURLError(
+            f"Unsupported file type '{ext or 'unknown'}'. Please select a video "
+            f"file ({', '.join(sorted(ALLOWED_EXTS))})."
+        )
+
+    # Deterministic id based on path and file size
+    upload_id = hashlib.sha256(f"{p}_{p.stat().st_size}".encode("utf-8")).hexdigest()[:32]
+    symlink_dest = DOWNLOADS_DIR / f"{upload_id}{ext}"
+
+    if symlink_dest.is_symlink() or symlink_dest.exists():
+        try:
+            if symlink_dest.is_symlink() and symlink_dest.resolve() == p:
+                return {
+                    "upload_id": upload_id,
+                    "filename": p.name,
+                    "ext": ext,
+                    "real_path": str(p),
+                    "size": p.stat().st_size,
+                    "linked": True,
+                }
+            symlink_dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    try:
+        symlink_dest.symlink_to(p)
+        logger.info("Created zero-copy symlink %s -> %s", symlink_dest.name, p)
+    except OSError as exc:
+        try:
+            os.link(str(p), str(symlink_dest))
+            logger.info("Created zero-copy hardlink %s -> %s", symlink_dest.name, p)
+        except OSError:
+            logger.warning("Could not symlink/hardlink %s; falling back to copy: %s", p, exc)
+            shutil.copyfile(p, symlink_dest)
+
+    return {
+        "upload_id": upload_id,
+        "filename": p.name,
+        "ext": ext,
+        "real_path": str(p),
+        "size": p.stat().st_size,
+        "linked": True,
+    }

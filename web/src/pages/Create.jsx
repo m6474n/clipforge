@@ -337,11 +337,37 @@ export default function Create({ step, setStep }) {
 
   async function doUpload(file) {
     if (!file) { setSource("url"); setUpload(null); setUpPct(null); if (objUrl) { URL.revokeObjectURL(objUrl); setObjUrl(null); } return; }
-    setSource("upload"); setUpload(null); setUpPct(0); setError("");
+    setSource("upload"); setUpload(null); setError("");
     if (objUrl) URL.revokeObjectURL(objUrl);
     setObjUrl(URL.createObjectURL(file));
-    try { const d = await api.upload(file, setUpPct); setUpload({ upload_id: d.upload_id, filename: d.filename || file.name }); setUpPct(null); }
-    catch (e) { setError(e.message); setUpPct(null); }
+
+    // 1. Try zero-copy local linking first (uses file directly in-place from existing location!)
+    try {
+      const linkRes = await api.linkLocal(file.name, file.size);
+      if (linkRes && linkRes.status === "ok" && linkRes.upload_id) {
+        setUpload({
+          upload_id: linkRes.upload_id,
+          filename: linkRes.filename || file.name,
+          real_path: linkRes.real_path,
+          linked: true,
+        });
+        setUpPct(null);
+        return;
+      }
+    } catch (err) {
+      console.warn("Zero-copy local linking check error, falling back to upload", err);
+    }
+
+    // 2. Fallback: stream upload if file is not found in local directories
+    setUpPct(0);
+    try {
+      const d = await api.upload(file, setUpPct);
+      setUpload({ upload_id: d.upload_id, filename: d.filename || file.name });
+      setUpPct(null);
+    } catch (e) {
+      setError(e.message);
+      setUpPct(null);
+    }
   }
 
   async function onFontUpload(file) {

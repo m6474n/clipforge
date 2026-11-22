@@ -20,7 +20,7 @@ import threading
 import uuid
 from typing import Dict, Optional
 
-from . import downloader
+from . import downloader, uploads
 from .models import InvalidVideoURLError
 
 logger = logging.getLogger("ai_video_clipper.prefetch")
@@ -89,6 +89,25 @@ def start(url: str) -> Prefetch:
 # Downloader thread
 # --------------------------------------------------------------------------- #
 def _run(pf: Prefetch) -> None:
+    # Check if pf.url is a local file path (zero copy)
+    clean = pf.url.strip()
+    if clean.startswith("file://"):
+        clean = clean[7:]
+    try:
+        local_p = Path(clean).expanduser()
+        if local_p.is_file():
+            info = uploads.register_local_file(local_p)
+            pf.update(
+                status="done",
+                progress=1.0,
+                download_id=info["upload_id"],
+                message="Local video linked (zero copy)",
+            )
+            logger.info("[%s] prefetch linked local file -> %s", pf.id, local_p)
+            return
+    except Exception:
+        pass
+
     def hook(d: dict) -> None:
         status = d.get("status")
         if status == "downloading":

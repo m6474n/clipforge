@@ -240,6 +240,29 @@ def warmup(device: Device = Device.AUTO) -> dict:
         return {"status": "error", "device": device.value, "message": str(exc)}
 
 
+class LinkLocalRequest(BaseModel):
+    filename: Optional[str] = None
+    size: Optional[int] = None
+    path: Optional[str] = None
+
+
+@app.post("/api/link-local")
+def link_local_video(req: LinkLocalRequest) -> dict:
+    """Zero-copy reference to an existing file on the user's disk."""
+    if req.path:
+        try:
+            return {"status": "ok", **uploads.register_local_file(req.path)}
+        except InvalidVideoURLError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    if req.filename:
+        hit = uploads.find_local_video(req.filename, req.size)
+        if hit is not None:
+            return {"status": "ok", **uploads.register_local_file(hit)}
+
+    return {"status": "not_found", "message": "Local file path not found"}
+
+
 @app.post("/api/upload")
 def upload(file: UploadFile = File(...)) -> dict:
     """Accept a video file from the user's machine and return an upload reference.
