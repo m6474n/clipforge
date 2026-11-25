@@ -14,11 +14,10 @@ const ASPECTS = [
 ];
 
 const TABS = [
+  { id: "framing", label: "📐 Framing & Aspect" },
   { id: "saved_templates", label: "⭐ Presets" },
-  { id: "framing", label: "📐 Framing" },
   { id: "text", label: "✍️ Text Overlay" },
   { id: "templates", label: "🎨 Social Cards" },
-  { id: "strategy", label: "⏱️ Clips & Strategy" },
 ];
 
 function formatDuration(sec) {
@@ -36,7 +35,7 @@ export default function Screen2Settings({
   framing, setFraming, textOverlay, setTextOverlay, templateConfig, setTemplateConfig,
   studio, aspect, fit, signature, setSig, videoRef,
   templates, activeTemplateId, onApplyTemplate, onSaveTemplate, onDeleteTemplate,
-  onBack, onNext, nextEnabled,
+  onBack, onNext, nextEnabled, nextLabel, activeToolId,
 }) {
   const [activeTab, setActiveTab] = useState("framing");
   const isSquare = outputAspect === "1:1";
@@ -44,206 +43,56 @@ export default function Screen2Settings({
   const targetSec = clipLen || 40;
   const maxPossible = duration ? Math.max(1, Math.floor(duration / targetSec)) : null;
 
+  const isReframeOnly = activeToolId === "reframe";
+
   return (
     <div className="wizard-screen">
       <div className="w3-grid">
         <div className="card w3-left">
           <div className="card-h">
             <div>
-              <h2>Clip Studio &amp; Layout</h2>
+              <h2>{isReframeOnly ? "Video Reframer" : "Clip Studio & Layout"}</h2>
               <div className="note" style={{ margin: "2px 0 0 0", fontSize: 13 }}>
-                Customize framing, headline overlays, social templates, and clip duration.
+                {isReframeOnly
+                  ? "Choose target aspect ratio, adjust crop position, and export directly."
+                  : "Customize visual framing, aspect ratio, headline overlays, and social templates."}
               </div>
             </div>
           </div>
 
-          {/* Quick Template Strip */}
-          <div style={{ padding: "0 16px 12px" }}>
-            <TemplatePickerBar
-              templates={templates}
-              activeTemplateId={activeTemplateId}
-              onApplyTemplate={onApplyTemplate}
-              onOpenSave={() => setActiveTab("saved_templates")}
-            />
-          </div>
+          {!isReframeOnly && (
+            <>
+              {/* Quick Template Strip */}
+              <div style={{ padding: "0 16px 12px" }}>
+                <TemplatePickerBar
+                  templates={templates}
+                  activeTemplateId={activeTemplateId}
+                  onApplyTemplate={onApplyTemplate}
+                  onOpenSave={() => setActiveTab("saved_templates")}
+                />
+              </div>
 
-          {/* Sub-Tabs Navigation */}
-          <div className="screen2-subtabs">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`subtab-btn ${activeTab === t.id ? "active" : ""}`}
-                onClick={() => setActiveTab(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* TAB 0: Saved Templates */}
-          {activeTab === "saved_templates" && (
-            <div className="tab-pane-content">
-              <SavedTemplatesManager
-                templates={templates}
-                activeTemplateId={activeTemplateId}
-                onApplyTemplate={onApplyTemplate}
-                onSaveTemplate={onSaveTemplate}
-                onDeleteTemplate={onDeleteTemplate}
-                currentSummary={{
-                  framingMode: framing?.mode,
-                  splitPct: framing?.split_pct,
-                  captionPreset: studio.activeKey,
-                  captionPos: `${studio.cfg?.pos_x ?? 50}% / ${studio.cfg?.pos_y ?? 88}%`,
-                  hasOverlay: textOverlay?.enabled,
-                  aspect: outputAspect,
-                }}
-              />
-            </div>
-          )}
-
-          {/* TAB 1: Framing */}
-          {activeTab === "framing" && (
-            <div className="tab-pane-content">
-              <FramingEditor
-                media={media}
-                framing={framing}
-                setFraming={setFraming}
-                videoRef={videoRef}
-              />
-            </div>
-          )}
-
-          {/* TAB 2: Fixed Text Overlay */}
-          {activeTab === "text" && (
-            <div className="tab-pane-content">
-              <TextOverlayEditor
-                textOverlay={textOverlay}
-                setTextOverlay={setTextOverlay}
-              />
-            </div>
-          )}
-
-          {/* TAB 3: Background Templates */}
-          {activeTab === "templates" && (
-            <div className="tab-pane-content">
-              <TemplateEditor
-                templateConfig={templateConfig}
-                setTemplateConfig={setTemplateConfig}
-              />
-            </div>
-          )}
-
-          {/* TAB 4: Clips & Strategy */}
-          {activeTab === "strategy" && (
-            <div className="tab-pane-content">
-              {/* Average Clip Length */}
-              <div className="settings-section">
-                <div className="section-label-row">
-                  <label className="fieldlabel" style={{ margin: 0 }}>Average Clip Length</label>
-                  <span className="ctl-hint">Target duration per clip</span>
-                </div>
-                <div className="clip-len-toggle">
-                  {[
-                    ["30s", 30, "Shorts/TikTok"],
-                    ["45s", 45, "Reels (Ideal)"],
-                    ["60s", 60, "Longer Story"],
-                    ["Auto", null, "Adaptive"],
-                  ].map(([lbl, v, sub]) => (
-                    <button
-                      key={lbl}
-                      type="button"
-                      className={clipLen === v ? "active" : ""}
-                      onClick={() => setClipLen(v)}
-                    >
-                      <span className="btn-main-label">{lbl}</span>
-                      <span className="btn-sub-label">{sub}</span>
-                    </button>
-                  ))}
+              {/* Sub-Tabs Navigation */}
+              <div className="screen2-subtabs">
+                {TABS.map((t) => (
                   <button
+                    key={t.id}
                     type="button"
-                    className={clipLen != null && ![30, 45, 60].includes(clipLen) ? "active" : ""}
-                    onClick={() => setClipLen((c) => (c != null && ![30, 45, 60].includes(c) ? c : 40))}
+                    className={`subtab-btn ${activeTab === t.id ? "active" : ""}`}
+                    onClick={() => setActiveTab(t.id)}
                   >
-                    <span className="btn-main-label">Custom</span>
-                    <span className="btn-sub-label">
-                      {clipLen && ![30, 45, 60].includes(clipLen) ? `${clipLen}s` : "Set sec"}
-                    </span>
+                    {t.label}
                   </button>
-                </div>
-
-                {clipLen != null && ![30, 45, 60].includes(clipLen) && (
-                  <div className="custom-len-row" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="ctl-hint">Custom duration:</span>
-                    <div className="counter" style={{ width: "fit-content" }}>
-                      <input
-                        type="number"
-                        min="5"
-                        value={clipLen}
-                        onChange={(e) => setClipLen(Math.max(5, +e.target.value || 5))}
-                      />
-                      <span style={{ padding: "0 10px", opacity: 0.7 }}>seconds</span>
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
+            </>
+          )}
 
-              {/* Number of Clips */}
-              <div className="settings-section">
-                <div className="section-label-row">
-                  <label className="fieldlabel" style={{ margin: 0 }}>Number of Clips</label>
-                  <span className="ctl-hint">How many viral shorts to extract</span>
-                </div>
-
-                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
-                  <div className="toggle" style={{ flex: 1, minWidth: 220 }}>
-                    {[1, 3, 5, 8].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        className={numClips === n ? "active" : ""}
-                        onClick={() => setNumClips(n)}
-                      >
-                        {n} {n === 1 ? "Clip" : "Clips"} {n === 3 ? "★" : ""}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="counter" style={{ flexShrink: 0 }}>
-                    <button type="button" onClick={() => setNumClips((n) => Math.max(1, n - 1))}>−</button>
-                    <input
-                      type="number"
-                      min="1"
-                      value={numClips}
-                      onChange={(e) => setNumClips(Math.max(1, +e.target.value || 1))}
-                    />
-                    <button type="button" onClick={() => setNumClips((n) => n + 1)}>+</button>
-                  </div>
-                </div>
-
-                {/* Smart Estimator */}
-                <div className="smart-estimation-box">
-                  <div className="estimation-icon">🎯</div>
-                  <div className="estimation-text">
-                    {formattedDur ? (
-                      <>
-                        <strong>Video Length: {formattedDur}</strong>
-                        {" · "}
-                        <span>
-                          Can yield up to <strong>~{maxPossible}</strong> non-overlapping {clipLen ? `${clipLen}s` : "40s"} clips.
-                          ClipForge will rank speech density, hooks, and punchlines to export the <strong>top {numClips} viral moments</strong>.
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <strong>AI Virality Selection:</strong> ClipForge will score candidate windows by hook keywords, curiosity questions, and natural speech pauses to cut the <strong>top {numClips} viral moments</strong>.
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
+          {/* Framing & Aspect (Always shown for reframe tool, or when framing tab active) */}
+          {(isReframeOnly || activeTab === "framing") && (
+            <div className="tab-pane-content">
               {/* Output Aspect Ratio */}
-              <div className="settings-section">
+              <div className="settings-section" style={{ marginBottom: 14 }}>
                 <label className="fieldlabel">Output Aspect Ratio</label>
                 <div className="toggle">
                   {ASPECTS.map(([v, l]) => (
@@ -254,8 +103,8 @@ export default function Screen2Settings({
                 </div>
 
                 {isSquare && (
-                  <>
-                    <label className="fieldlabel" style={{ marginTop: 12 }}>Corners</label>
+                  <div style={{ marginTop: 10 }}>
+                    <label className="fieldlabel">Corners</label>
                     <div className="toggle">
                       {["round", "square"].map((c) => (
                         <button key={c} type="button" className={squareCorners === c ? "active" : ""} onClick={() => setSquareCorners(c)}>
@@ -263,52 +112,62 @@ export default function Screen2Settings({
                         </button>
                       ))}
                     </div>
-
-                    <label className="fieldlabel" style={{ marginTop: 12 }}>Title text (top) — Shift+Enter for a new line</label>
-                    <textarea
-                      className="title-area"
-                      placeholder="Title shown over the square…&#10;Second line…"
-                      rows={2}
-                      maxLength={120}
-                      value={barText}
-                      onChange={(e) => setBarText(e.target.value)}
-                    />
-                    <div className="row" style={{ gap: 12, marginTop: 10, alignItems: "center" }}>
-                      <label className="swatch">
-                        Title colour
-                        <input type="color" value={barTextColor} onChange={(e) => setBarTextColor(e.target.value)} />
-                      </label>
-                      <div style={{ flex: 1 }}>
-                        <label className="fieldlabel">Animation</label>
-                        <select value={barTextAnim} onChange={(e) => setBarTextAnim(e.target.value)}>
-                          <option value="none">None</option>
-                          <option value="fade">Fade in</option>
-                          <option value="slide">Slide up</option>
-                        </select>
-                      </div>
-                    </div>
-                  </>
+                  </div>
                 )}
               </div>
 
-              {/* Engine & Language */}
-              <div className="row" style={{ gap: 16, marginTop: 6, flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <label className="fieldlabel">Caption Language</label>
-                  <select value={language} onChange={(e) => changeLanguage(e.target.value)}>
-                    {LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
-                </div>
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <label className="fieldlabel">Processing Mode</label>
-                  <select value={device} onChange={(e) => setDevice(e.target.value)}>
-                    {["auto", ...devices.filter((d) => d !== "auto")].filter((v, i, a) => a.indexOf(v) === i).map((d) => (
-                      <option key={d} value={d}>{d === "cuda" ? "GPU (CUDA)" : d.toUpperCase()}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <FramingEditor
+                media={media}
+                framing={framing}
+                setFraming={setFraming}
+                videoRef={videoRef}
+              />
             </div>
+          )}
+
+          {!isReframeOnly && (
+            <>
+              {/* TAB 0: Saved Templates */}
+              {activeTab === "saved_templates" && (
+                <div className="tab-pane-content">
+                  <SavedTemplatesManager
+                    templates={templates}
+                    activeTemplateId={activeTemplateId}
+                    onApplyTemplate={onApplyTemplate}
+                    onSaveTemplate={onSaveTemplate}
+                    onDeleteTemplate={onDeleteTemplate}
+                    currentSummary={{
+                      framingMode: framing?.mode,
+                      splitPct: framing?.split_pct,
+                      captionPreset: studio.activeKey,
+                      captionPos: `${studio.cfg?.pos_x ?? 50}% / ${studio.cfg?.pos_y ?? 88}%`,
+                      hasOverlay: textOverlay?.enabled,
+                      aspect: outputAspect,
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* TAB 2: Fixed Text Overlay */}
+              {activeTab === "text" && (
+                <div className="tab-pane-content">
+                  <TextOverlayEditor
+                    textOverlay={textOverlay}
+                    setTextOverlay={setTextOverlay}
+                  />
+                </div>
+              )}
+
+              {/* TAB 3: Background Templates */}
+              {activeTab === "templates" && (
+                <div className="tab-pane-content">
+                  <TemplateEditor
+                    templateConfig={templateConfig}
+                    setTemplateConfig={setTemplateConfig}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -368,7 +227,7 @@ export default function Screen2Settings({
 
       <div className="wizard-nav">
         <button className="btn btn-ghost" type="button" onClick={onBack}>← Back</button>
-        <button className="btn btn-primary" type="button" disabled={!nextEnabled} onClick={onNext}>Next →</button>
+        <button className="btn btn-primary" type="button" disabled={!nextEnabled} onClick={onNext}>{nextLabel || "Next →"}</button>
       </div>
     </div>
   );

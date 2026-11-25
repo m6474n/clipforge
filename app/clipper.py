@@ -47,6 +47,20 @@ def target_size(aspect_ratio: AspectRatio, fit_mode: FitMode) -> tuple[int, int]
     return _TARGETS[aspect_ratio]
 
 
+def get_video_duration(video_path: Path) -> float:
+    """Read media duration in seconds via ffmpeg without full decode."""
+    try:
+        cmd = ["ffmpeg", "-i", str(video_path)]
+        res = subprocess.run(cmd, capture_output=True, text=True, errors="ignore")
+        m = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", res.stderr)
+        if m:
+            h, mm, s = m.groups()
+            return max(0.1, int(h) * 3600 + int(mm) * 60 + float(s))
+    except Exception as exc:
+        logger.warning("Could not probe video duration via ffmpeg: %s", exc)
+    return 60.0
+
+
 def ensure_rounded_mask(size: int = _SQUARE_INNER, radius: int = _SQUARE_RADIUS) -> Path:
     """Create (once) and cache a grayscale rounded-rectangle mask via ffmpeg.
 

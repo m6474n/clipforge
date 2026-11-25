@@ -25,7 +25,7 @@ function targetAspectNum(aspect, fit) {
   return aspect === "16:9" ? 16 / 9 : 9 / 16;
 }
 
-export default function Create({ step, setStep }) {
+export default function Create({ step, setStep, activeToolId, setActiveToolId }) {
   const [presets, setPresets] = useState([]);
   const [fonts, setFonts] = useState({ bundled: [], multilingual: [], user: [] });
   const [devices, setDevices] = useState(["auto"]);
@@ -38,16 +38,20 @@ export default function Create({ step, setStep }) {
   const [objUrl, setObjUrl] = useState(null);
   const [drag, setDrag] = useState(false);
 
-  // Output
-  const [aspect, setAspect] = useState("9:16");
-  const [fit, setFit] = useState("crop");
+  // Output defaults (loaded from Settings tab or fallback)
+  const [aspect, setAspect] = useState(() => localStorage.getItem("cf_default_aspect") || "9:16");
+  const [fit, setFit] = useState(() => (localStorage.getItem("cf_default_aspect") === "1:1" ? "square" : "crop"));
   const [barText, setBarText] = useState("");
   const [barTextColor, setBarTextColor] = useState("#FFFFFF");
   const [barTextAnim, setBarTextAnim] = useState("none");
-  const [numClips, setNumClips] = useState(3);
-  const [clipLen, setClipLen] = useState(null);   // target clip length in seconds; null = Auto (adaptive)
-  const [language, setLanguage] = useState("auto");
-  const [device, setDevice] = useState("auto");
+  const [numClips, setNumClips] = useState(() => +localStorage.getItem("cf_default_num_clips") || 1);
+  const [clipLen, setClipLen] = useState(() => {
+    const v = localStorage.getItem("cf_default_clip_len");
+    if (!v || v === "full" || v === "auto") return null;
+    return +v || null;
+  });
+  const [language, setLanguage] = useState(() => localStorage.getItem("cf_default_lang") || "auto");
+  const [device, setDevice] = useState(() => localStorage.getItem("cf_default_device") || "auto");
   const [squareCorners, setSquareCorners] = useState("round");
 
   const outputAspect = fit === "square" ? "1:1" : aspect;
@@ -171,7 +175,8 @@ export default function Create({ step, setStep }) {
   }, []);
 
   const studio = useStudio(presets, fonts, language);
-  const prep = usePrep(device, language, autoTranscribe);
+  const shouldAutoTranscribe = activeToolId !== "reframe" && autoTranscribe;
+  const prep = usePrep(device, language, shouldAutoTranscribe);
 
   const applyTemplate = (tpl) => {
     if (!tpl) return;
@@ -400,23 +405,39 @@ export default function Create({ step, setStep }) {
     };
   }, [source, upPct, upload, prep.prep, autoTranscribe, transcript.ready, srcId]);
 
-  async function generate() {
+  async function generate(overrides = {}) {
     setError("");
+    const isReframe = activeToolId === "reframe" || overrides.tool === "reframe";
+    const isCaptions = activeToolId === "captions" || overrides.tool === "captions";
+
+    let chosenCapStyle = isReframe ? "none" : (overrides.caption_style || studio.styleId || "bold_white");
+    const chosenNumClips = (isReframe || isCaptions) ? 1 : (overrides.num_clips || numClips || 1);
+    const chosenAspect = overrides.aspect_ratio || aspect;
+
     const payload = {
-      aspect_ratio: aspect, fit_mode: fit,
+      aspect_ratio: chosenAspect,
+      fit_mode: fit,
       bar_text: fit === "square" ? (barText.trim() || null) : null,
-      bar_text_color: barTextColor, bar_text_anim: barTextAnim,
-      num_clips: numClips, device, caption_style: studio.styleId,
+      bar_text_color: barTextColor,
+      bar_text_anim: barTextAnim,
+      num_clips: chosenNumClips,
+      device: overrides.device || device,
+      caption_style: chosenCapStyle,
       language: language === "auto" ? null : language,
       square_corners: squareCorners,
     };
-    if (clipLen != null) payload.clip_length = clipLen;
+    if (clipLen != null && !isReframe && !isCaptions) payload.clip_length = clipLen;
     if (framing) payload.framing = framing;
-    if (textOverlay && textOverlay.enabled) payload.text_overlay = textOverlay;
-    if (templateConfig && templateConfig.preset !== "none") payload.template = templateConfig;
-    if (Object.keys(studio.overrides).length) payload.caption_overrides = studio.overrides;
-    if (cineActive(studio.cinematic)) payload.cinematic = studio.cinematic;
-    if (musicTrack) { payload.music_track = musicTrack; payload.music_volume = musicVolume; payload.music_duck = musicDuck; payload.music_start = musicStart; }
+    if (textOverlay && textOverlay.enabled && !isReframe) payload.text_overlay = textOverlay;
+    if (templateConfig && templateConfig.preset !== "none" && !isReframe) payload.template = templateConfig;
+    if (Object.keys(studio.overrides).length && chosenCapStyle !== "none") payload.caption_overrides = studio.overrides;
+    if (cineActive(studio.cinematic) && !isReframe) payload.cinematic = studio.cinematic;
+    if (musicTrack && !isReframe && !isCaptions) {
+      payload.music_track = musicTrack;
+      payload.music_volume = musicVolume;
+      payload.music_duck = musicDuck;
+      payload.music_start = musicStart;
+    }
     if (signature.enabled && (signature.text || "").trim()) payload.signature = signature;
     if (source === "upload") {
       if (!upload) { setError("Wait for the upload to finish."); return; }
@@ -640,14 +661,14 @@ export default function Create({ step, setStep }) {
     restart();
   };
 
-  // When transcript finishes in background, notify the user with option to save/clear
+  // When transcript finishes in background, notify the user with option to save/clear (only in full clipper)
   useEffect(() => {
-    if (transcript.ready && !promptShownRef.current && (srcId || sourceReady)) {
+    if (activeToolId === "clipper" && transcript.ready && !promptShownRef.current && (srcId || sourceReady)) {
       promptShownRef.current = true;
       saveProjectDraft(step);
       setShowTranscriptPrompt(true);
     }
-  }, [transcript.ready, srcId, sourceReady]);
+  }, [transcript.ready, srcId, sourceReady, activeToolId]);
 
   // Keep draft updated whenever user progresses past Step 1
   useEffect(() => {
@@ -682,8 +703,31 @@ export default function Create({ step, setStep }) {
 
   const showStepper = step >= 2 && step <= 7;
 
+  const flowSteps = useMemo(() => {
+    if (activeToolId === "reframe") {
+      return [
+        { n: 2, label: "Reframe & Crop" },
+        { n: 6, label: "Export" },
+      ];
+    }
+    if (activeToolId === "captions") {
+      return [
+        { n: 3, label: "Captions Style" },
+        { n: 6, label: "Export" },
+      ];
+    }
+    return [
+      { n: 2, label: "Layout" },
+      { n: 3, label: "Captions" },
+      { n: 4, label: "Effects" },
+      { n: 5, label: "Music" },
+      { n: 6, label: "Review" },
+      { n: 7, label: "Export" },
+    ];
+  }, [activeToolId]);
+
   return (
-    <>
+    <div className={step > 1 ? "wizard-container" : ""}>
       <ErrorBoundary onReset={() => setStep(2)} onClear={clearDraft}>
         {step === 1 && (
           <Screen1Input
@@ -692,7 +736,16 @@ export default function Create({ step, setStep }) {
             doUpload={doUpload} onClear={() => doUpload(null)} sourceReady={sourceReady} error={error}
             templates={templates} activeTemplateId={activeTemplateId} onApplyTemplate={applyTemplate}
             savedDraft={savedDraft} onResumeDraft={resumeDraft} onClearDraft={clearDraft}
-            onContinue={() => { startPrep(); setStep(2); }}
+            onContinue={() => {
+              startPrep();
+              if (activeToolId === "captions") {
+                setStep(3);
+              } else {
+                setStep(2);
+              }
+            }}
+            activeToolId={activeToolId}
+            onSelectToolId={setActiveToolId}
           />
         )}
 
@@ -714,8 +767,17 @@ export default function Create({ step, setStep }) {
             templates={templates} activeTemplateId={activeTemplateId}
             onApplyTemplate={applyTemplate} onSaveTemplate={saveNewTemplate} onDeleteTemplate={deleteTemplate}
             onBack={() => setStep(1)}
-            onNext={() => setStep(3)}
+            onNext={() => {
+              if (activeToolId === "reframe") {
+                generate({ tool: "reframe", caption_style: "none", num_clips: 1 });
+                setStep(6);
+              } else {
+                setStep(3);
+              }
+            }}
+            nextLabel={activeToolId === "reframe" ? "Export Reframed Video ⚡" : "Next →"}
             nextEnabled={!["downloading", "idle"].includes(prepView.phase)}
+            activeToolId={activeToolId}
           />
         )}
 
@@ -724,10 +786,23 @@ export default function Create({ step, setStep }) {
             studio={studio} language={language} onFontUpload={onFontUpload}
             media={media} prepView={prepView} sourceReady={sourceReady}
             transcript={transcript} curTime={curTime} seekTo={seekTo} videoRef={videoRef} duration={vidDuration}
-            aspect={aspect} fit={fit} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+            aspect={aspect} fit={fit} setOutputAspect={setOutputAspect} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig}
             framing={framing} setFraming={setFraming} textOverlay={textOverlay} setTextOverlay={setTextOverlay} templateConfig={templateConfig}
-            onBack={() => setStep(2)} onNext={() => setStep(4)}
+            onBack={() => {
+              if (activeToolId === "captions") setStep(1);
+              else setStep(2);
+            }}
+            onNext={() => {
+              if (activeToolId === "captions") {
+                generate({ tool: "captions", num_clips: 1 });
+                setStep(6);
+              } else {
+                setStep(4);
+              }
+            }}
+            nextLabel={activeToolId === "captions" ? "Export Captioned Video ⚡" : "Next →"}
+            activeToolId={activeToolId}
           />
         )}
 
@@ -758,8 +833,14 @@ export default function Create({ step, setStep }) {
         {step === 6 && (
           <Screen6Review
             busy={busy} snap={snap} clips={clips} error={error}
+            activeToolId={activeToolId}
             onCancel={cancelGenerate} onOpenReframe={openReframe}
-            onBack={() => setStep(5)} onNext={() => setStep(7)}
+            onBack={() => {
+              if (activeToolId === "reframe") setStep(2);
+              else if (activeToolId === "captions") setStep(3);
+              else setStep(5);
+            }}
+            onNext={() => setStep(7)}
           />
         )}
 
@@ -851,19 +932,21 @@ export default function Create({ step, setStep }) {
           </div>
 
           <div className="wizard-steps wizard-steps-bottom">
-            {WIZARD_LABELS.slice(1).map((lbl, i) => {
-              const n = i + 2;
-              return (
-                <button key={lbl} type="button" className={"wizard-step" + (step === n ? " active" : step > n ? " done" : "")}
-                  onClick={() => setStep(n)} title={`Jump to ${lbl}`}>
-                  <span className="wizard-step-dot">{step > n ? "✓" : n - 1}</span>
-                  <span className="wizard-step-lbl">{lbl}</span>
-                </button>
-              );
-            })}
+            {flowSteps.map((s, i) => (
+              <button
+                key={s.label}
+                type="button"
+                className={"wizard-step" + (step === s.n ? " active" : step > s.n ? " done" : "")}
+                onClick={() => setStep(s.n)}
+                title={`Jump to ${s.label}`}
+              >
+                <span className="wizard-step-dot">{step > s.n ? "✓" : i + 1}</span>
+                <span className="wizard-step-lbl">{s.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

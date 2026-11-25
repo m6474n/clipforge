@@ -6,12 +6,9 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Create from "./pages/Create.jsx";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
-
-const NAV = [
-  { id: "create", label: "Create", icon: Icons.create },
-  { id: "library", label: "Library", icon: Icons.library },
-  { id: "settings", label: "Settings", icon: Icons.settings },
-];
+import HomeNavbar from "./components/HomeNavbar.jsx";
+import ToolsDrawer from "./components/ToolsDrawer.jsx";
+import { TOOLS } from "./toolsConfig.js";
 
 const TITLES = {
   create: { h: "Create clips", sub: "Turn any video into captioned vertical shorts" },
@@ -104,7 +101,8 @@ export default function App() {
   const [step, setStep] = useState(1);
   const [device, setDevice] = useState(null);
   const [online, setOnline] = useState(null);
-  const [navOpen, setNavOpen] = useState(false);
+  const [toolsDrawerOpen, setToolsDrawerOpen] = useState(false);
+  const [activeToolId, setActiveToolId] = useState("clipper");
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem("cf-theme") || "dark"; } catch { return "dark"; }
   });
@@ -159,18 +157,42 @@ export default function App() {
     return () => { alive = false; clearInterval(t); };
   }, []);
 
-  // The Create landing (step 1) is a clean, full-screen page: the sidebar + topbar
-  // are HIDDEN (via the .is-landing class), not unmounted. <Create> stays mounted
-  // across landing→editor so its source/url/upload state survives.
-  const chromeless = page === "create" && step === 1;
-  const t = TITLES[page];
+  useEffect(() => {
+    if (page === "library" && activeToolId !== "library") {
+      setActiveToolId("library");
+    } else if (page === "settings" && activeToolId !== "settings") {
+      setActiveToolId("settings");
+    } else if (page === "create" && (activeToolId === "library" || activeToolId === "settings")) {
+      setActiveToolId("clipper");
+    }
+  }, [page]);
 
-  const go = (id) => { setPage(id); setNavOpen(false); };
+  const t = TITLES[page] || TITLES.create;
+
+  const handleSelectTool = (tool) => {
+    setActiveToolId(tool.id);
+    if (tool.id === "library") {
+      setPage("library");
+    } else if (tool.id === "settings") {
+      setPage("settings");
+    } else {
+      setPage("create");
+      setStep(1);
+    }
+  };
 
   if (isSwitchingModel || modelStatus.status === "needs_onboarding") {
     return (
-      <div className={"shell is-landing" + (navOpen ? " nav-open" : "")}>
-        <ThemeSwitch theme={theme} setTheme={setTheme} fixed />
+      <div className="shell">
+        <HomeNavbar
+          activeToolId={activeToolId}
+          onSelectTool={handleSelectTool}
+          onOpenDrawer={() => setToolsDrawerOpen(true)}
+          theme={theme}
+          setTheme={setTheme}
+          online={online}
+          device={device}
+        />
         <div className="content">
           <ModelOnboarding
             onSelect={(id) => {
@@ -185,8 +207,16 @@ export default function App() {
 
   if (modelStatus.status !== "ready") {
     return (
-      <div className={"shell is-landing" + (navOpen ? " nav-open" : "")}>
-        <ThemeSwitch theme={theme} setTheme={setTheme} fixed />
+      <div className="shell">
+        <HomeNavbar
+          activeToolId={activeToolId}
+          onSelectTool={handleSelectTool}
+          onOpenDrawer={() => setToolsDrawerOpen(true)}
+          theme={theme}
+          setTheme={setTheme}
+          online={online}
+          device={device}
+        />
         <div className="content">
           <ModelSplash
             status={modelStatus}
@@ -198,56 +228,29 @@ export default function App() {
   }
 
   return (
-    <div className={"shell" + (chromeless ? " is-landing" : "") + (navOpen ? " nav-open" : "")}>
-      {/* On the chromeless landing the topbar is hidden, so float the switcher. */}
-      {chromeless && <ThemeSwitch theme={theme} setTheme={setTheme} fixed />}
-
-      <div className="nav-scrim" onClick={() => setNavOpen(false)} aria-hidden="true" />
-
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="logo"><Icons.bolt /></span>
-          <span className="brand-text">ClipForge<span className="brand-by">by Mosen</span></span>
-        </div>
-        <nav className="nav">
-          {NAV.map((n) => (
-            <button
-              key={n.id}
-              className={"nav-item" + (page === n.id ? " active" : "")}
-              onClick={() => go(n.id)}
-            >
-              <n.icon /> {n.label}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-foot">
-          100% local pipeline<br />yt-dlp · faster-whisper · ffmpeg
-        </div>
-      </aside>
+    <div className="shell">
+      <ToolsDrawer
+        isOpen={toolsDrawerOpen}
+        onClose={() => setToolsDrawerOpen(false)}
+        activeToolId={activeToolId}
+        onSelectTool={handleSelectTool}
+        online={online}
+        device={device}
+      />
 
       <div className="main">
-        <header className="topbar">
-          <button className="nav-toggle" onClick={() => setNavOpen((o) => !o)} aria-label="Menu">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          <div className="topbar-titles">
-            <h1>{t.h}</h1>
-            <div className="sub">{t.sub}</div>
-          </div>
-          <div className="topbar-right">
-            <ThemeSwitch theme={theme} setTheme={setTheme} />
-            <span className={"badge " + (online ? "ok" : online === false ? "warn" : "")}>
-              <span className="dot" />
-              {online == null ? "Connecting…" : online ? `Backend · ${(device || "ready").toUpperCase()}` : "Backend offline"}
-            </span>
-          </div>
-        </header>
+        <HomeNavbar
+          activeToolId={activeToolId}
+          onSelectTool={handleSelectTool}
+          onOpenDrawer={() => setToolsDrawerOpen(true)}
+          theme={theme}
+          setTheme={setTheme}
+          online={online}
+          device={device}
+        />
 
         <div className="content">
-          {/* Orbs are ALWAYS in the tree (hidden via CSS off the landing) so that
-              <Create> never changes sibling-index. */}
+          {/* Ambient orbs active across all pages */}
           <div className="landing-orbs" aria-hidden="true">
             <span className="orb orb-1" />
             <span className="orb orb-2" />
@@ -255,13 +258,41 @@ export default function App() {
             <span className="orb orb-4" />
             <span className="orb orb-5" />
           </div>
+
           <div style={{ display: page === "create" ? "contents" : "none" }}>
             <ErrorBoundary onReset={() => setStep(2)}>
-              <Create step={step} setStep={setStep} />
+              <Create
+                step={step}
+                setStep={setStep}
+                activeToolId={activeToolId}
+                setActiveToolId={setActiveToolId}
+              />
             </ErrorBoundary>
           </div>
-          {page === "library" && <Library />}
-          {page === "settings" && <Settings />}
+
+          {page === "library" && (
+            <div className="page-container">
+              <div className="page-header">
+                <div className="page-header-titles">
+                  <h1>{t.h}</h1>
+                  <div className="sub">{t.sub}</div>
+                </div>
+              </div>
+              <Library />
+            </div>
+          )}
+
+          {page === "settings" && (
+            <div className="page-container">
+              <div className="page-header">
+                <div className="page-header-titles">
+                  <h1>{t.h}</h1>
+                  <div className="sub">{t.sub}</div>
+                </div>
+              </div>
+              <Settings />
+            </div>
+          )}
         </div>
       </div>
     </div>

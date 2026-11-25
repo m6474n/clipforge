@@ -47,6 +47,7 @@ export default function Screen1Input({
   doUpload, onClear, sourceReady, error, onContinue,
   templates, activeTemplateId, onApplyTemplate,
   savedDraft, onResumeDraft, onClearDraft,
+  activeToolId = "clipper", onSelectToolId,
 }) {
   const uploading = source === "upload" && upPct != null && !upload;
   const fileChosen = source === "upload" && (upload || upPct != null);
@@ -65,6 +66,41 @@ export default function Screen1Input({
           Paste a link or drop a file — ClipForge finds the best moments, reframes them
           vertical, and burns on styled captions, right on your own machine.
         </p>
+
+        {activeToolId && activeToolId !== "clipper" && (
+          <div className="active-tool-banner">
+            <div className="tool-banner-icon">
+              {activeToolId === "captions" && <Icons.captions />}
+              {activeToolId === "reframe" && <Icons.crop />}
+              {activeToolId === "audio" && <Icons.music />}
+            </div>
+            <div className="tool-banner-info">
+              <div className="tool-banner-title">
+                <span>
+                  {activeToolId === "captions" && "Auto Captions & Subtitles Mode"}
+                  {activeToolId === "reframe" && "Video Reframe Mode"}
+                  {activeToolId === "audio" && "Audio & Music Studio Mode"}
+                </span>
+                <span className="tool-banner-badge">Active Focus</span>
+              </div>
+              <p className="tool-banner-sub">
+                {activeToolId === "captions" && "Add your video below to auto-transcribe and burn animated karaoke / Hormozi creator captions."}
+                {activeToolId === "reframe" && "Add your video below to convert 16:9 widescreen into 9:16 vertical shorts with smart subject tracking."}
+                {activeToolId === "audio" && "Add your video below to add background music tracks with auto speech ducking & volume mixing."}
+              </p>
+            </div>
+            {onSelectToolId && (
+              <button
+                type="button"
+                className="tool-banner-reset"
+                onClick={() => onSelectToolId("clipper")}
+                title="Switch back to full AI Clipper"
+              >
+                Reset to Full Clipper
+              </button>
+            )}
+          </div>
+        )}
 
         {savedDraft && (
           <div className="project-draft-banner">
@@ -134,17 +170,24 @@ export default function Screen1Input({
           )}
 
           <button className="cmd-go" disabled={!sourceReady} onClick={onContinue}>
-            <Icons.bolt /> Continue
+            <Icons.bolt />{" "}
+            {activeToolId === "reframe"
+              ? "Reframe Video"
+              : activeToolId === "captions"
+              ? "Add Captions"
+              : "Continue"}
           </button>
         </div>
 
         {error && <div className="error landing-error">{error}</div>}
 
-        <TemplatePickerBar
-          templates={templates}
-          activeTemplateId={activeTemplateId}
-          onApplyTemplate={onApplyTemplate}
-        />
+        {activeToolId === "clipper" && (
+          <TemplatePickerBar
+            templates={templates}
+            activeTemplateId={activeTemplateId}
+            onApplyTemplate={onApplyTemplate}
+          />
+        )}
 
         <div className="landing-hints">
           {["Drag & drop a file onto the bar", "9:16, 16:9 & 1:1 square", "19 caption styles", "Manual reframe & keyframes"].map((h) => (

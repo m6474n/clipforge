@@ -71,6 +71,13 @@ def select_clips(
         return _fallback_even_split(transcript, num_clips, clip_length)
 
     duration = float(transcript.get("duration") or (segments[-1].get("end") or 0.0))
+    if duration <= 0:
+        return []
+
+    # When 1 clip is requested without an explicit shorter duration,
+    # yield the entire video duration as a single clip without speech chopping.
+    if num_clips == 1 and (clip_length is None or clip_length <= 0 or clip_length >= duration):
+        return [{"start": 0.0, "end": duration, "title": transcript.get("title") or "Full Video"}]
 
     if clip_length and clip_length > 0:
         # Explicit length requested: cut each window to EXACTLY this many seconds so
@@ -358,6 +365,9 @@ def _fallback_even_split(
     duration = float(transcript.get("duration") or 0.0)
     if duration <= 0:
         return []
+
+    if num_clips == 1 and (clip_length is None or clip_length <= 0 or clip_length >= duration):
+        return [{"start": 0.0, "end": duration, "title": transcript.get("title") or "Full Video"}]
 
     if clip_length and clip_length > 0:
         # Honour the requested clip length; fit as many as asked for into the video.

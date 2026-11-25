@@ -296,5 +296,108 @@
       "chroma_shift_strength": 40
     },
     "updated_at": 1795322503.739711
+  },
+  {
+    "id": "tpl_mwvqf4yj",
+    "name": "Jplays",
+    "description": "",
+    "is_default": false,
+    "framing": {
+      "mode": "duo",
+      "frames": [
+        {
+          "x": 0,
+          "y": 49.4,
+          "width": 17.4,
+          "height": 25.3,
+          "aspect_ratio": "custom"
+        },
+        {
+          "x": 20.6,
+          "y": 5.4,
+          "width": 62.1,
+          "height": 94.6,
+          "aspect_ratio": "9:16"
+        }
+      ],
+      "split_pct": 31
+    },
+    "caption": {
+      "preset": "alex_caps",
+      "pos_x": 50,
+      "pos_y": 31.3,
+      "overrides": {
+        "pos_x": 50,
+        "pos_y": 31.3,
+        "highlight_color": "#FF2D78",
+        "background_enabled": false,
+        "background_color": "#000000",
+        "background_opacity": 100
+      }
+    },
+    "text_overlay": {
+      "enabled": false,
+      "text": "WAIT TILL THE END \ud83d\ude31",
+      "font_family": "Roboto-Bold",
+      "font_size": 54,
+      "text_color": "#FFFFFF",
+      "bg_color": "#000000",
+      "bg_opacity": 80,
+      "padding": 16,
+      "border_radius": 12,
+      "alignment": "center",
+      "pos_x": 50,
+      "pos_y": 16
+    },
+    "template_config": {
+      "preset": "none",
+      "avatar_url": null,
+      "display_name": "Alex Rivera",
+      "username": "alexrivera",
+      "verified": true,
+      "caption_text": "You won't believe what happened next\u2026",
+      "video_scale": 100,
+      "video_pos_y": 50,
+      "custom_banner_url": null
+    },
+    "output": {
+      "aspect": "9:16",
+      "fit": "crop",
+      "square_corners": "round",
+      "bar_text": "",
+      "bar_text_color": "#FFFFFF",
+      "bar_text_anim": "none"
+    },
+    "signature": {
+      "enabled": true,
+      "text": "@viceeshots",
+      "pos_x": 50,
+      "pos_y": 92,
+      "size": 34,
+      "color": "#FFFFFF",
+      "opacity": 75
+    },
+    "cinematic": {
+      "color_grade": "none",
+      "bottom_gradient": true,
+      "bottom_gradient_height": 8,
+      "bottom_gradient_strength": 70,
+      "top_gradient": true,
+      "top_gradient_height": 8,
+      "top_gradient_strength": 60,
+      "vignette": false,
+      "vignette_strength": 50,
+      "glow": false,
+      "glow_strength": 50,
+      "grain": false,
+      "grain_strength": 40,
+      "letterbox": false,
+      "letterbox_size": 50,
+      "sharpen": false,
+      "sharpen_strength": 40,
+      "chroma_shift": false,
+      "chroma_shift_strength": 40
+    },
+    "updated_at": 1795587472.6445227
   }
 ]

@@ -412,7 +412,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     max_lines = int(cfg.get("max_lines") or 1)
     max_chars = int(cfg.get("max_chars") or 22)
 
-    if animation == "one_word":
+    if style_preset == "none":
+        events = []
+    elif animation == "one_word":
         events = _word_hold_events(words)
     else:
         events = _group_events(words, max_chars=max_chars, max_lines=max_lines)

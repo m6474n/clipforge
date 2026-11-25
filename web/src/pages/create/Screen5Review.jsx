@@ -2,11 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { Icons } from "../../components/Icons.jsx";
 import ClipPhone from "../../components/ClipPhone.jsx";
 
-const PIPELINE_MILESTONES = [
+const PIPELINE_MILESTONES_CLIPPER = [
   { id: "downloading", label: "Media Ingestion", desc: "Download & verify video stream", icon: "📥" },
   { id: "transcribing", label: "Speech Transcription", desc: "Whisper AI word timestamps", icon: "🎙️" },
   { id: "selecting", label: "Viral Hook Selection", desc: "Speech density & hook scoring", icon: "🧠" },
   { id: "rendering", label: "Compositing & Subtitles", desc: "Framing, templates & audio mix", icon: "🎬" },
+];
+
+const PIPELINE_MILESTONES_REFRAME = [
+  { id: "downloading", label: "Media Ingestion", desc: "Load & verify video stream", icon: "📥" },
+  { id: "rendering", label: "Video Reframing & Crop", desc: "Crop, resize & encode to target aspect", icon: "📐" },
+];
+
+const PIPELINE_MILESTONES_CAPTIONS = [
+  { id: "downloading", label: "Media Ingestion", desc: "Load & verify video stream", icon: "📥" },
+  { id: "transcribing", label: "Speech Transcription", desc: "Whisper AI word timestamps", icon: "🎙️" },
+  { id: "rendering", label: "Burning Subtitles", desc: "Style, render & encode video with captions", icon: "💬" },
 ];
 
 function formatDuration(sec) {
@@ -30,16 +41,22 @@ function getStageBadge(stage) {
   }
 }
 
-export default function Screen5Review({ busy, snap, clips, error, onCancel, onOpenReframe, onBack, onNext }) {
+export default function Screen5Review({ busy, snap, clips, error, onCancel, onOpenReframe, onBack, onNext, activeToolId = "clipper" }) {
   const [localSeconds, setLocalSeconds] = useState(0);
   const logBodyRef = useRef(null);
 
   const done = snap?.status === "done";
   const pct = Math.max(0, Math.min(100, Math.round((snap?.progress || 0) * 100)));
 
+  const milestones = activeToolId === "reframe"
+    ? PIPELINE_MILESTONES_REFRAME
+    : activeToolId === "captions"
+    ? PIPELINE_MILESTONES_CAPTIONS
+    : PIPELINE_MILESTONES_CLIPPER;
+
   // Current active milestone index
-  const curMilestoneIdx = PIPELINE_MILESTONES.findIndex((m) => m.id === snap?.stage);
-  const activeIdx = done ? 4 : curMilestoneIdx >= 0 ? curMilestoneIdx : 0;
+  const curMilestoneIdx = milestones.findIndex((m) => m.id === snap?.stage);
+  const activeIdx = done ? milestones.length : curMilestoneIdx >= 0 ? curMilestoneIdx : 0;
 
   // Live timer tick while busy
   useEffect(() => {
@@ -95,12 +112,20 @@ export default function Screen5Review({ busy, snap, clips, error, onCancel, onOp
             <div className="render-live-indicator">
               <span className={`live-pulse-dot ${done ? "is-done" : busy ? "is-busy" : ""}`} />
               <span className="live-pill-text">
-                {done ? "All Clips Ready" : busy ? "Rendering Pipeline Active" : "Processing Paused"}
+                {done
+                  ? (activeToolId === "reframe" ? "Reframed Video Ready" : "All Clips Ready")
+                  : busy
+                  ? (activeToolId === "reframe" ? "Reframing Video..." : activeToolId === "captions" ? "Generating Captioned Video..." : "Rendering Pipeline Active")
+                  : "Processing Paused"}
               </span>
             </div>
-            <h2>{done ? "Clips Generated Successfully!" : "Rendering your clips"}</h2>
+            <h2>
+              {done
+                ? (activeToolId === "reframe" ? "Video Reframed Successfully!" : activeToolId === "captions" ? "Captions Added Successfully!" : "Clips Generated Successfully!")
+                : (activeToolId === "reframe" ? "Reframing video" : activeToolId === "captions" ? "Rendering subtitles" : "Rendering your clips")}
+            </h2>
             <div className="render-dash-sub">
-              {snap?.message || "Running automated clipping, reframing, and caption burning pipeline"}
+              {snap?.message || (activeToolId === "reframe" ? "Fast reframing and encoding to target aspect ratio" : "Running automated clipping, reframing, and caption burning pipeline")}
             </div>
           </div>
 
@@ -168,7 +193,7 @@ export default function Screen5Review({ busy, snap, clips, error, onCancel, onOp
         {/* Milestone Steps Bar */}
         <div className="milestones-container">
           <div className="milestones-track">
-            {PIPELINE_MILESTONES.map((m, i) => {
+            {milestones.map((m, i) => {
               const isPast = done || i < activeIdx;
               const isCurrent = !done && i === activeIdx;
               return (

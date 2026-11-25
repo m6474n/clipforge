@@ -137,9 +137,9 @@ function CaptionPlacementBar({ studio }) {
 // live customizer, and saveable custom presets — unchanged from before).
 export default function Screen3Captions({
   studio, language, onFontUpload, media, prepView, sourceReady,
-  transcript, curTime, seekTo, videoRef, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig,
+  transcript, curTime, seekTo, videoRef, aspect, fit, setOutputAspect, barText, barTextColor, barTextAnim, signature, setSig,
   framing, setFraming, textOverlay, setTextOverlay, templateConfig,
-  onBack, onNext,
+  onBack, onNext, nextLabel, activeToolId,
 }) {
   const [tab, setTab] = useState("themes");
   const [saveOpen, setSaveOpen] = useState(false);
@@ -151,7 +151,39 @@ export default function Screen3Captions({
     <div className="wizard-screen">
       <div className="w3-grid">
         <div className="card w3-left">
-          <div className="card-h"><h2>Caption style</h2></div>
+          <div className="card-h">
+            <div>
+              <h2 style={{ margin: 0 }}>Caption Style &amp; Placement</h2>
+              {activeToolId === "captions" && (
+                <div className="note" style={{ margin: "2px 0 0 0", fontSize: 12.5 }}>
+                  Add bottom captions to your video (vertical or horizontal) and export instantly.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Format Switcher (Vertical / Horizontal) */}
+          <div style={{ padding: "0 0 14px", borderBottom: "1px solid var(--line)", marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Video Format:</span>
+              <div className="toggle" style={{ margin: 0 }}>
+                <button
+                  type="button"
+                  className={aspect === "9:16" ? "active" : ""}
+                  onClick={() => setOutputAspect && setOutputAspect("9:16")}
+                >
+                  9:16 Vertical
+                </button>
+                <button
+                  type="button"
+                  className={aspect === "16:9" ? "active" : ""}
+                  onClick={() => setOutputAspect && setOutputAspect("16:9")}
+                >
+                  16:9 Horizontal
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="studio-tabs">
             <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")}><Icons.library /><span className="studio-tab-lbl">Themes</span></button>
             <button className={"studio-tab" + (tab === "style" ? " active" : "")} onClick={() => setTab("style")}><Icons.create /><span className="studio-tab-lbl">Customize</span></button>
@@ -243,7 +275,7 @@ export default function Screen3Captions({
 
       <div className="wizard-nav">
         <button className="btn btn-ghost" onClick={onBack}>← Back</button>
-        <button className="btn btn-primary" onClick={onNext}>Next →</button>
+        <button className="btn btn-primary" onClick={onNext}>{nextLabel || "Next →"}</button>
       </div>
     </div>
   );

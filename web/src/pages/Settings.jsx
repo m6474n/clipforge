@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { LANGS } from "../caption.js";
 import ModelOnboarding from "../components/ModelOnboarding.jsx";
 
 export default function Settings() {
@@ -10,6 +11,49 @@ export default function Settings() {
     return localStorage.getItem("cf_auto_transcribe") !== "false";
   });
   const [savingConfig, setSavingConfig] = useState(false);
+
+  // Clipping & Generation Defaults
+  const [defaultNumClips, setDefaultNumClips] = useState(() => {
+    return +localStorage.getItem("cf_default_num_clips") || 1;
+  });
+  const [defaultClipLen, setDefaultClipLen] = useState(() => {
+    return localStorage.getItem("cf_default_clip_len") || "full";
+  });
+  const [defaultAspect, setDefaultAspect] = useState(() => {
+    return localStorage.getItem("cf_default_aspect") || "9:16";
+  });
+  const [defaultLanguage, setDefaultLanguage] = useState(() => {
+    return localStorage.getItem("cf_default_lang") || "auto";
+  });
+  const [defaultDevice, setDefaultDevice] = useState(() => {
+    return localStorage.getItem("cf_default_device") || "auto";
+  });
+
+  const updateDefaultNumClips = (val) => {
+    const n = Math.max(1, +val || 1);
+    setDefaultNumClips(n);
+    localStorage.setItem("cf_default_num_clips", n);
+  };
+
+  const updateDefaultClipLen = (val) => {
+    setDefaultClipLen(val);
+    localStorage.setItem("cf_default_clip_len", val);
+  };
+
+  const updateDefaultAspect = (val) => {
+    setDefaultAspect(val);
+    localStorage.setItem("cf_default_aspect", val);
+  };
+
+  const updateDefaultLanguage = (val) => {
+    setDefaultLanguage(val);
+    localStorage.setItem("cf_default_lang", val);
+  };
+
+  const updateDefaultDevice = (val) => {
+    setDefaultDevice(val);
+    localStorage.setItem("cf_default_device", val);
+  };
 
   // Buffer.com Integration state
   const [bufferStatus, setBufferStatus] = useState(null);
@@ -84,7 +128,135 @@ export default function Settings() {
 
   return (
     <>
-      <div className="card" style={{ maxWidth: 620 }}>
+      {/* Clipping & Video Defaults Card */}
+      <div className="card" style={{ maxWidth: 660, marginBottom: 20 }}>
+        <div className="card-h">
+          <div>
+            <h2 style={{ margin: 0 }}>Clipping &amp; Video Defaults</h2>
+            <div className="note" style={{ margin: "3px 0 0 0", fontSize: 12.5 }}>
+              Configure defaults for all tools (AI Clipper, Reframer, Captions) so the runtime flow stays fast and streamlined.
+            </div>
+          </div>
+        </div>
+
+        {/* Default Number of Clips */}
+        <div style={{ padding: "14px 0", borderBottom: "1px solid var(--line)" }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>Default Number of Clips</div>
+              <div className="note" style={{ margin: "2px 0 0 0", fontSize: 12 }}>
+                Default is 1 clip (full video). Choose more clips if you want AI viral moment extraction.
+              </div>
+            </div>
+            <div className="counter" style={{ flexShrink: 0 }}>
+              <button type="button" onClick={() => updateDefaultNumClips(defaultNumClips - 1)}>−</button>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={defaultNumClips}
+                onChange={(e) => updateDefaultNumClips(e.target.value)}
+              />
+              <button type="button" onClick={() => updateDefaultNumClips(defaultNumClips + 1)}>+</button>
+            </div>
+          </div>
+          <div className="toggle" style={{ marginTop: 6 }}>
+            {[
+              [1, "1 Clip (Full Video) ★"],
+              [2, "2 Clips"],
+              [3, "3 Clips"],
+              [5, "5 Clips"],
+            ].map(([n, lbl]) => (
+              <button
+                key={n}
+                type="button"
+                className={defaultNumClips === n ? "active" : ""}
+                onClick={() => updateDefaultNumClips(n)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Default Clip Duration */}
+        <div style={{ padding: "14px 0", borderBottom: "1px solid var(--line)" }}>
+          <div style={{ fontWeight: 600 }}>Default Clip Duration</div>
+          <div className="note" style={{ margin: "2px 0 8px 0", fontSize: 12 }}>
+            Duration per clip. "Full Video" retains the complete video duration without cuts.
+          </div>
+          <div className="toggle" style={{ flexWrap: "wrap", gap: 6 }}>
+            {[
+              ["full", "Full Video (Default)"],
+              ["30", "30s (Shorts)"],
+              ["45", "45s (Reels)"],
+              ["60", "60s (Stories)"],
+              ["auto", "Auto (Adaptive)"],
+            ].map(([val, lbl]) => (
+              <button
+                key={val}
+                type="button"
+                className={String(defaultClipLen) === String(val) ? "active" : ""}
+                onClick={() => updateDefaultClipLen(val)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Default Aspect Ratio */}
+        <div style={{ padding: "14px 0", borderBottom: "1px solid var(--line)" }}>
+          <div style={{ fontWeight: 600 }}>Default Aspect Ratio</div>
+          <div className="note" style={{ margin: "2px 0 8px 0", fontSize: 12 }}>
+            Preferred export format for reframing and clipping.
+          </div>
+          <div className="toggle">
+            {[
+              ["9:16", "9:16 Vertical (Shorts/Reels)"],
+              ["1:1", "1:1 Square (Feed)"],
+              ["16:9", "16:9 Landscape (YouTube)"],
+            ].map(([val, lbl]) => (
+              <button
+                key={val}
+                type="button"
+                className={defaultAspect === val ? "active" : ""}
+                onClick={() => updateDefaultAspect(val)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Default Language & Processing Mode */}
+        <div className="row" style={{ gap: 16, paddingTop: 14, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label className="fieldlabel">Default Caption Language</label>
+            <select
+              value={defaultLanguage}
+              onChange={(e) => updateDefaultLanguage(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--line-2)", color: "var(--text)" }}
+            >
+              {LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label className="fieldlabel">Default Processing Device</label>
+            <select
+              value={defaultDevice}
+              onChange={(e) => updateDefaultDevice(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--line-2)", color: "var(--text)" }}
+            >
+              <option value="auto">Auto (Detect Fastest)</option>
+              <option value="cuda">GPU (CUDA)</option>
+              <option value="cpu">CPU</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ maxWidth: 660 }}>
         <div className="card-h"><h2>Speech Recognition & Hardware</h2></div>
         {!d ? <div className="note">Checking…</div> : (
           <>

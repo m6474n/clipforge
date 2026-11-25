@@ -297,55 +297,65 @@ def _run_pipeline(job: Job) -> None:
         def on_transcribe(frac: float, msg: str) -> None:
             job.set_stage("transcribing", frac, msg)
 
-        if pretranscribe.cached(source_id, req.language) is not None:
-            job.set_stage(
-                "transcribing", 1.0, "Using transcript prepared while you set things up..."
-            )
+        # 2) Transcribe with faster-whisper (skipped entirely in reframe-only mode).
+        is_reframe_only = (req.caption_style == "none")
+        if is_reframe_only:
+            vid_dur = clipper.get_video_duration(source_mp4)
+            transcript = {"duration": vid_dur, "segments": [], "words": []}
+            caption_language = "en"
+            job.set_stage("transcribing", 1.0, "Reframing mode — skipping speech transcription.")
+            job.set_stage("selecting", 1.0, "Full video selected for reframing.")
+            windows = [{"start": 0.0, "end": vid_dur, "title": "Reframed Video"}]
         else:
-            # A background pre-transcription (started on Step 2) may already be
-            # running and holding the shared Whisper lock. Rather than freeze the
-            # bar while we block on that lock, mirror the background job's live
-            # progress here so the user sees real movement; once it finishes,
-            # get_or_transcribe returns its cached result instantly.
-            running = pretranscribe.find_running(source_id)
-            if running is not None:
-                while True:
-                    snap = running.snapshot()
-                    if snap.get("status") != "running":
-                        break
-                    prog = snap.get("progress", 0.0)
-                    detail = snap.get("message") or f"Transcribing... {int(prog * 100)}%"
-                    job.set_stage(
-                        "transcribing", prog,
-                        f"Transcribing ({device_label}): {detail}",
-                    )
-                    time.sleep(0.4)
-            else:
+            if pretranscribe.cached(source_id, req.language) is not None:
                 job.set_stage(
-                    "transcribing", 0.0,
-                    f"Transcribing audio with local Whisper ({device_label})...",
+                    "transcribing", 1.0, "Using transcript prepared while you set things up..."
                 )
+            else:
+                # A background pre-transcription (started on Step 2) may already be
+                # running and holding the shared Whisper lock. Rather than freeze the
+                # bar while we block on that lock, mirror the background job's live
+                # progress here so the user sees real movement; once it finishes,
+                # get_or_transcribe returns its cached result instantly.
+                running = pretranscribe.find_running(source_id)
+                if running is not None:
+                    while True:
+                        snap = running.snapshot()
+                        if snap.get("status") != "running":
+                            break
+                        prog = snap.get("progress", 0.0)
+                        detail = snap.get("message") or f"Transcribing... {int(prog * 100)}%"
+                        job.set_stage(
+                            "transcribing", prog,
+                            f"Transcribing ({device_label}): {detail}",
+                        )
+                        time.sleep(0.4)
+                else:
+                    job.set_stage(
+                        "transcribing", 0.0,
+                        f"Transcribing audio with local Whisper ({device_label})...",
+                    )
 
-        transcript = pretranscribe.get_or_transcribe(
-            source_mp4, source_id, req.device.value,
-            progress=on_transcribe, language=req.language,
-        )
-        # The language the captions are actually in: what the user forced, or
-        # what Whisper detected. Drives the per-clip download filename.
-        forced = (req.language or "").strip().lower()
-        caption_language = (
-            forced if forced and forced != "auto" else transcript.get("language")
-        )
-
-        # 3) Select clips (local heuristic, optional local Ollama).
-        job.set_stage("selecting", 0.3, "Analyzing transcript for the best moments...")
-        windows = selector.select_clips(transcript, req.num_clips, req.clip_length)
-        if not windows:
-            raise ClipGenerationError(
-                "Could not find any suitable clip windows in this video. "
-                "Try a longer video or fewer clips."
+            transcript = pretranscribe.get_or_transcribe(
+                source_mp4, source_id, req.device.value,
+                progress=on_transcribe, language=req.language,
             )
-        job.set_stage("selecting", 1.0, f"Found {len(windows)} clip(s) to render.")
+            # The language the captions are actually in: what the user forced, or
+            # what Whisper detected. Drives the per-clip download filename.
+            forced = (req.language or "").strip().lower()
+            caption_language = (
+                forced if forced and forced != "auto" else transcript.get("language")
+            )
+
+            # 3) Select clips (local heuristic, optional local Ollama).
+            job.set_stage("selecting", 0.3, "Analyzing transcript for the best moments...")
+            windows = selector.select_clips(transcript, req.num_clips, req.clip_length)
+            if not windows:
+                raise ClipGenerationError(
+                    "Could not find any suitable clip windows in this video. "
+                    "Try a longer video or fewer clips."
+                )
+            job.set_stage("selecting", 1.0, f"Found {len(windows)} clip(s) to render.")
 
         # 4) Per clip: build ASS captions + render with ffmpeg. The caption canvas
         # must match the actual output frame (1:1 in square mode, aspect otherwise).
