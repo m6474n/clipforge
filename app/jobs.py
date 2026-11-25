@@ -19,7 +19,7 @@ import time
 import uuid
 from typing import Dict, List, Optional
 
-from . import captions, downloader, history, music, pretranscribe, reframe, selector, transcriber, uploads
+from . import captions, clipper, downloader, history, music, pretranscribe, reframe, selector, transcriber, uploads
 from .clipper import ClipOptions, generate_clip, target_size
 from .models import (
     LANGUAGE_NAMES,
